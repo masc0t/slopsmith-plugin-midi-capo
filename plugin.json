@@ -6,5 +6,6 @@
   "nav": { "label": "Capo", "screen": "midi-capo" },
   "screen": "screen.html",
   "script": "screen.js",
-  "settings": { "html": "settings.html" }
+  "settings": { "html": "settings.html" },
+  "routes": "routes.py"
 }

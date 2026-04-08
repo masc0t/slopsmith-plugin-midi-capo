@@ -101,6 +101,12 @@ function _capoGetSettings() {
     };
 }
 
+function _capoFetchTuning(filename) {
+    return fetch(`/api/plugins/midi_capo/tuning/${encodeURIComponent(decodeURIComponent(filename))}`)
+        .then(r => r.json())
+        .then(data => data.tuning || null);
+}
+
 function _capoCalcShift(tuning) {
     // tuning = array of 6 ints, offsets from E Standard
     // Returns the semitone shift for the Fractal Virtual Capo
@@ -166,12 +172,19 @@ function _capoResend() {
     console.log(`[MIDI] Virtual Capo: resend shift=${_capoLastShift}, CC#${settings.cc}=${value}`);
 }
 
+let _capoLastTuningOffsets = null;
+
 function _capoCheck() {
     const info = highway.getSongInfo();
-    if (info && info.tuning && info.title && info.title !== _capoLastTitle) {
+    if (!info || !info.title || info.title === _capoLastTitle) return;
+
+    // Only use websocket tuning if core provides it (skips API fetch path)
+    if (info.tuning && Array.isArray(info.tuning)) {
         _capoLastTitle = info.title;
+        _capoLastTuningOffsets = info.tuning;
         _capoSend(info.tuning);
     }
+    // Otherwise the playSong wrapper handles it via plugin route
 }
 
 // Poll for song tuning changes
@@ -233,8 +246,17 @@ function _capoUpdateBadge(shift) {
     const origPlaySong = window.playSong;
     window.playSong = async function(filename, arrangement) {
         _capoLastTitle = null;
+        _capoLastTuningOffsets = null;
         await origPlaySong(filename, arrangement);
         _capoInjectBadge();
+        // Fetch raw tuning offsets from plugin route
+        _capoFetchTuning(filename).then(offsets => {
+            if (offsets) {
+                _capoLastTuningOffsets = offsets;
+                _capoLastTitle = highway.getSongInfo()?.title || '';
+                _capoSend(offsets);
+            }
+        }).catch(() => {});
     };
 })();
 
@@ -249,17 +271,17 @@ function _capoUpdateStatus() {
             Virtual Capo is disabled. Enable it in Settings.</div>`;
         return;
     }
-    const info = highway.getSongInfo();
-    if (!info || !info.tuning) {
+    const tuning = _capoLastTuningOffsets;
+    if (!tuning) {
         el.innerHTML = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 text-xs text-gray-500">
             Virtual Capo enabled (CC#${settings.cc}, Ch${settings.channel}) — no song loaded</div>`;
         return;
     }
-    const shift = _capoCalcShift(info.tuning);
+    const shift = _capoCalcShift(tuning);
     const val = _capoShiftToCC(shift);
     el.innerHTML = `<div class="bg-dark-700/50 border border-amber-800/30 rounded-xl p-3 flex items-center gap-3 text-xs">
         <span class="text-amber-400 font-semibold">Virtual Capo</span>
-        <span class="text-gray-400">Tuning: [${info.tuning.join(', ')}]</span>
+        <span class="text-gray-400">Tuning: [${tuning.join(', ')}]</span>
         <span class="text-gray-400">Shift: ${shift >= 0 ? '+' : ''}${shift}</span>
         <span class="text-gray-500">CC#${settings.cc} Ch${settings.channel} → ${val}</span>
     </div>`;

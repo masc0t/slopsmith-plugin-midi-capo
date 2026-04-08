@@ -41,8 +41,11 @@ docker compose restart
 1. Connect your Fractal unit via USB MIDI
 2. Go to "Capo" in the navigation
 3. The plugin detects your MIDI device and sends a center value (0 shift)
-4. When a song loads, the plugin reads its tuning, calculates the semitone shift, and sends the corresponding CC value
-5. Use the "Test" button to manually send a shift and verify the correct pitch change on your device
+4. When a song loads, the plugin extracts the raw tuning offsets from the PSARC via its own API route and calculates the semitone shift
+5. The corresponding CC value is sent automatically to your MIDI device
+6. Use the "Test" button to manually send a shift and verify the correct pitch change on your device
+
+> **Note:** The plugin includes a server-side route (`routes.py`) that reads tuning data directly from PSARC files, so it works without any modifications to the Slopsmith core.
 
 ### Fractal Setup
 
