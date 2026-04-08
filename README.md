@@ -1,6 +1,6 @@
 # Slopsmith Plugin: Virtual Capo
 
-A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends MIDI CC messages to your Fractal Audio amp/modeler, automatically setting the Virtual Capo pitch shift to match each song's tuning during playback.
+A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends MIDI CC messages to your Fractal Audio modeler, automatically setting the Virtual Capo pitch shift to match each song's tuning during playback.
 
 ## Features
 
@@ -24,7 +24,7 @@ May also work with other modelers that accept MIDI CC to control pitch shifting.
 ## Requirements
 
 - **Chrome or Edge browser** (Firefox does not support Web MIDI)
-- A USB MIDI device visible to the browser — either the amp/modeler directly via USB, or a USB MIDI interface (e.g. MIDI Sport, Zoom U-44) connected to the amp's 5-pin MIDI IN
+- A USB MIDI device visible to the browser — either the modeler directly via USB, or a USB MIDI interface (e.g. MIDI Sport, Zoom U-44) connected to the Fractal's 5-pin MIDI IN
 
 ## Installation
 
