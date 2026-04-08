@@ -8,6 +8,8 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 - **Automatic tuning detection** — reads the song's tuning and calculates the correct semitone shift
 - **Standard & Drop tuning support** — handles E Standard, D Standard, Drop D, Drop C, 7-string, and more
 - **Configurable CC & channel** — route to any MIDI channel and CC number to match your Fractal setup
+- **Player bar badge** — shows the current capo shift in the player controls; click to disengage/re-engage the capo on the fly
+- **Device reconnect** — automatically re-sends the last shift if your USB MIDI device disconnects and reconnects mid-song
 - **Test button** — send a pitch shift manually to verify your connection
 - **Center on startup** — sends CC 64 (0 shift) on initialization so the Virtual Capo starts neutral
 - **Auto-save** — settings persist in localStorage, saved automatically on change
