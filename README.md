@@ -60,6 +60,11 @@ docker compose restart
 
 Unknown tuning shapes default to shift 0 (no change).
 
+
+## Engaged <img width="2005" height="1364" alt="capo on" src="https://github.com/user-attachments/assets/cdd4532e-3be6-4bfa-9cb8-521f595c8f8f" />
+## Bypassed <img width="2004" height="1363" alt="capo off" src="https://github.com/user-attachments/assets/e8e0ed8e-ba0f-433b-9cf9-8eed7307043c" />
+
+
 ## License
 
 MIT
