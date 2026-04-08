@@ -70,7 +70,7 @@ Unknown tuning shapes default to shift 0 (no change).
 
 ## Other Plugins
 
-- [Find More Songs](https://github.com/masc0t/slopsmith-plugin-find-more) — search CustomsForge for more songs by an artist and see which ones you already have
+- [Find More Songs](https://github.com/masc0t/slopsmith-plugin-find-more) — search CustomsForge for more songs by an artist and find more songs to add to your collection
 
 ## License
 
