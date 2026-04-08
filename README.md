@@ -30,7 +30,7 @@ May also work with other modelers that accept MIDI CC to control pitch shifting.
 
 ```bash
 cd /path/to/slopsmith/plugins
-git clone https://github.com/byrongamatos/slopsmith-plugin-midi-capo.git midi_capo
+git clone https://github.com/masc0t/slopsmith-plugin-midi-capo.git midi_capo
 docker compose restart
 ```
 
