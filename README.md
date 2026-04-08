@@ -68,6 +68,10 @@ Unknown tuning shapes default to shift 0 (no change).
 ## Bypassed <img width="2004" height="1363" alt="capo off" src="https://github.com/user-attachments/assets/e8e0ed8e-ba0f-433b-9cf9-8eed7307043c" />
 
 
+## Other Plugins
+
+- [Find More Songs](https://github.com/masc0t/slopsmith-plugin-find-more) — search CustomsForge for more songs by an artist and see which ones you already have
+
 ## License
 
 MIT
