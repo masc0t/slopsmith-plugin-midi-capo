@@ -4,6 +4,7 @@
 let _capoMidiAccess = null;
 let _capoMidiOutput = null;
 let _capoLastTitle = null;
+let _capoLastShift = null;
 
 // ── Web MIDI API ────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ async function capoMidiInit() {
     try {
         _capoMidiAccess = await navigator.requestMIDIAccess({ sysex: false });
         _capoUpdateDevices();
-        _capoMidiAccess.onstatechange = _capoUpdateDevices;
+        _capoMidiAccess.onstatechange = () => { _capoUpdateDevices(); _capoResend(); };
     } catch (e) {
         status.innerHTML = `
             <div class="bg-red-900/20 border border-red-800/30 rounded-xl p-4 text-sm">
@@ -148,9 +149,21 @@ function _capoSend(tuning) {
     if (!settings.enabled || !_capoMidiOutput) return;
 
     const shift = _capoCalcShift(tuning);
+    _capoLastShift = shift;
+    _capoUpdateBadge(shift);
+    if (_capoDisengaged) return;
     const value = _capoShiftToCC(shift);
     _capoMidiSend(settings.channel, settings.cc, value);
     console.log(`[MIDI] Virtual Capo: tuning=${JSON.stringify(tuning)}, shift=${shift}, CC#${settings.cc}=${value}`);
+}
+
+function _capoResend() {
+    if (_capoLastShift === null) return;
+    const settings = _capoGetSettings();
+    if (!settings.enabled || !_capoMidiOutput) return;
+    const value = _capoShiftToCC(_capoLastShift);
+    _capoMidiSend(settings.channel, settings.cc, value);
+    console.log(`[MIDI] Virtual Capo: resend shift=${_capoLastShift}, CC#${settings.cc}=${value}`);
 }
 
 function _capoCheck() {
@@ -166,11 +179,62 @@ setInterval(_capoCheck, 100);
 
 // ── Player Integration ──────────────────────────────────────────────────
 
+let _capoDisengaged = false;
+
+function _capoInjectBadge() {
+    const controls = document.getElementById('player-controls');
+    if (!controls || document.getElementById('btn-capo')) return;
+    const closeBtn = controls.querySelector('button:last-child');
+    const btn = document.createElement('button');
+    btn.id = 'btn-capo';
+    btn.className = 'px-3 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 rounded-lg text-xs text-amber-300 transition';
+    btn.textContent = 'Capo 0';
+    btn.title = 'Click to disengage Virtual Capo';
+    btn.onclick = _capoToggleDisengage;
+    controls.insertBefore(btn, closeBtn);
+    _capoDisengaged = false;
+}
+
+function _capoToggleDisengage() {
+    const settings = _capoGetSettings();
+    if (_capoDisengaged) {
+        _capoDisengaged = false;
+        _capoResend();
+    } else {
+        _capoDisengaged = true;
+        _capoMidiSend(settings.channel, settings.cc, 64);
+    }
+    _capoStyleBadge();
+}
+
+function _capoStyleBadge() {
+    const btn = document.getElementById('btn-capo');
+    if (!btn) return;
+    if (_capoDisengaged) {
+        btn.className = 'px-3 py-1.5 bg-dark-600 hover:bg-dark-500 rounded-lg text-xs text-gray-500 transition line-through';
+        btn.title = 'Click to re-engage Virtual Capo';
+    } else {
+        btn.className = 'px-3 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 rounded-lg text-xs text-amber-300 transition';
+        btn.title = 'Click to disengage Virtual Capo';
+    }
+}
+
+function _capoUpdateBadge(shift) {
+    const btn = document.getElementById('btn-capo');
+    if (!btn) return;
+    btn.textContent = `Capo ${shift >= 0 ? '+' : ''}${shift}`;
+    if (_capoDisengaged) {
+        _capoDisengaged = false;
+        _capoStyleBadge();
+    }
+}
+
 (function() {
     const origPlaySong = window.playSong;
     window.playSong = async function(filename, arrangement) {
         _capoLastTitle = null;
         await origPlaySong(filename, arrangement);
+        _capoInjectBadge();
     };
 })();
 
@@ -227,6 +291,7 @@ if (navigator.requestMIDIAccess) {
             _capoMidiAccess.outputs.forEach(o => outs.push(o));
             const saved = localStorage.getItem('midi_output_id');
             _capoMidiOutput = outs.find(o => o.id === saved) || outs[0] || null;
+            _capoResend();
         };
     }).catch(() => {});
 }
