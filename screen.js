@@ -3,7 +3,6 @@
 
 let _capoMidiAccess = null;
 let _capoMidiOutput = null;
-let _capoSent = false;
 let _capoLastTitle = null;
 
 // ── Web MIDI API ────────────────────────────────────────────────────────
@@ -97,7 +96,7 @@ function _capoGetSettings() {
     return {
         enabled: localStorage.getItem('midi_capo_enabled') === 'true',
         channel: parseInt(localStorage.getItem('midi_capo_channel') || '0'),
-        cc: parseInt(localStorage.getItem('midi_capo_cc') || '0'),
+        cc: parseInt(localStorage.getItem('midi_capo_cc') || '18'),
     };
 }
 
@@ -155,10 +154,8 @@ function _capoSend(tuning) {
 }
 
 function _capoCheck() {
-    if (_capoSent) return;
     const info = highway.getSongInfo();
     if (info && info.tuning && info.title && info.title !== _capoLastTitle) {
-        _capoSent = true;
         _capoLastTitle = info.title;
         _capoSend(info.tuning);
     }
@@ -172,8 +169,8 @@ setInterval(_capoCheck, 100);
 (function() {
     const origPlaySong = window.playSong;
     window.playSong = async function(filename, arrangement) {
+        _capoLastTitle = null;
         await origPlaySong(filename, arrangement);
-        _capoSent = false;
     };
 })();
 
