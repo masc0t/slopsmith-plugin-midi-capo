@@ -1,0 +1,10 @@
+{
+  "id": "midi_capo",
+  "name": "Virtual Capo",
+  "version": "1.0.0",
+  "private": false,
+  "nav": { "label": "Capo", "screen": "midi-capo" },
+  "screen": "screen.html",
+  "script": "screen.js",
+  "settings": { "html": "settings.html" }
+}
