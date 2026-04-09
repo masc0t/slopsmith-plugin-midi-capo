@@ -71,6 +71,7 @@ Unknown tuning shapes default to shift 0 (no change).
 ## Other Plugins
 
 - [Find More Songs](https://github.com/masc0t/slopsmith-plugin-find-more) — search CustomsForge for more songs by an artist and find more songs to add to your collection
+- [Invert Highway](https://github.com/masc0t/slopsmith-plugin-invert-highway) — flip the chord note stacking order on the highway
 
 ## License
 
