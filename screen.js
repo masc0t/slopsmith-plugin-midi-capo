@@ -101,8 +101,10 @@ function _capoGetSettings() {
     };
 }
 
-function _capoFetchTuning(filename) {
-    return fetch(`/api/plugins/midi_capo/tuning/${encodeURIComponent(decodeURIComponent(filename))}`)
+function _capoFetchTuning(filename, arrangement) {
+    let url = `/api/plugins/midi_capo/tuning/${encodeURIComponent(decodeURIComponent(filename))}`;
+    if (arrangement) url += `?arrangement=${encodeURIComponent(arrangement)}`;
+    return fetch(url)
         .then(r => r.json())
         .then(data => data.tuning || null);
 }
@@ -137,6 +139,11 @@ function _capoCalcShift(tuning) {
     return 0;
 }
 
+function _capoIsDrop(tuning) {
+    if (!tuning || tuning.length < 6) return false;
+    return tuning[0] === tuning[1] - 2;
+}
+
 function _capoShiftToCC(shift) {
     // Fractal Virtual Capo Shift: modifier maps CC 0-127 to parameter range
     // With range -24..+24: center (0 shift) = 64, each semitone = 127/48 ≈ 2.646
@@ -155,8 +162,9 @@ function _capoSend(tuning) {
     if (!settings.enabled || !_capoMidiOutput) return;
 
     const shift = _capoCalcShift(tuning);
+    const drop = _capoIsDrop(tuning);
     _capoLastShift = shift;
-    _capoUpdateBadge(shift);
+    _capoUpdateBadge(shift, drop);
     if (_capoDisengaged) return;
     const value = _capoShiftToCC(shift);
     _capoMidiSend(settings.channel, settings.cc, value);
@@ -173,16 +181,32 @@ function _capoResend() {
 }
 
 let _capoLastTuningOffsets = null;
+let _capoLastArrangement = null;
+let _capoLastFilename = null;
 
 function _capoCheck() {
     const info = highway.getSongInfo();
-    if (!info || !info.title || info.title === _capoLastTitle) return;
+    if (!info || !info.title) return;
+
+    const arrChanged = info.arrangement !== _capoLastArrangement;
+    const songChanged = info.title !== _capoLastTitle;
+    if (!songChanged && !arrChanged) return;
 
     // Only use websocket tuning if core provides it (skips API fetch path)
     if (info.tuning && Array.isArray(info.tuning)) {
         _capoLastTitle = info.title;
+        _capoLastArrangement = info.arrangement;
         _capoLastTuningOffsets = info.tuning;
         _capoSend(info.tuning);
+    } else if (arrChanged && _capoLastFilename) {
+        // Arrangement changed — re-fetch tuning for new path
+        _capoLastArrangement = info.arrangement;
+        _capoFetchTuning(_capoLastFilename, info.arrangement).then(offsets => {
+            if (offsets) {
+                _capoLastTuningOffsets = offsets;
+                _capoSend(offsets);
+            }
+        }).catch(() => {});
     }
     // Otherwise the playSong wrapper handles it via plugin route
 }
@@ -232,10 +256,11 @@ function _capoStyleBadge() {
     }
 }
 
-function _capoUpdateBadge(shift) {
+function _capoUpdateBadge(shift, drop) {
     const btn = document.getElementById('btn-capo');
     if (!btn) return;
-    btn.textContent = `Capo ${shift >= 0 ? '+' : ''}${shift}`;
+    const label = drop ? 'Drop' : 'Standard';
+    btn.textContent = `${label} ${shift >= 0 ? '+' : ''}${shift}`;
     if (_capoDisengaged) {
         _capoDisengaged = false;
         _capoStyleBadge();
@@ -246,14 +271,20 @@ function _capoUpdateBadge(shift) {
     const origPlaySong = window.playSong;
     window.playSong = async function(filename, arrangement) {
         _capoLastTitle = null;
+        _capoLastArrangement = null;
         _capoLastTuningOffsets = null;
+        _capoLastFilename = filename;
+        // Start tuning fetch in parallel with song load
+        const tuningPromise = _capoFetchTuning(filename, arrangement);
         await origPlaySong(filename, arrangement);
         _capoInjectBadge();
-        // Fetch raw tuning offsets from plugin route
-        _capoFetchTuning(filename).then(offsets => {
+        // Use pre-fetched tuning (should already be resolved by now)
+        tuningPromise.then(offsets => {
             if (offsets) {
+                const info = highway.getSongInfo();
                 _capoLastTuningOffsets = offsets;
-                _capoLastTitle = highway.getSongInfo()?.title || '';
+                _capoLastTitle = info?.title || '';
+                _capoLastArrangement = info?.arrangement || '';
                 _capoSend(offsets);
             }
         }).catch(() => {});

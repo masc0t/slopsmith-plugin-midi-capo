@@ -5,10 +5,11 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 ## Features
 
 - **Auto-detect MIDI devices** — uses the Web MIDI API to find connected USB MIDI devices
-- **Automatic tuning detection** — reads the song's tuning and calculates the correct semitone shift
+- **Automatic tuning detection** — reads the song's tuning and calculates the correct semitone shift, with CentOffset (virtual capo) correction for CDLCs that use it
+- **Arrangement-aware** — responds to the currently selected path (Lead, Rhythm, Bass) and re-fetches tuning on arrangement change
 - **Standard & Drop tuning support** — handles E Standard, D Standard, Drop D, Drop C, 7-string, and more
 - **Configurable CC & channel** — route to any MIDI channel and CC number to match your Fractal setup
-- **Player bar badge** — shows the current capo shift in the player controls; click to disengage/re-engage the capo on the fly
+- **Player bar badge** — shows the current shift with tuning type indicator (e.g. "Drop -7" or "Standard -2"); click to disengage/re-engage the capo on the fly
 - **Device reconnect** — automatically re-sends the last shift if your USB MIDI device disconnects and reconnects mid-song
 - **Test button** — send a pitch shift manually to verify your connection
 - **Center on startup** — sends CC 64 (0 shift) on initialization so the Virtual Capo starts neutral
@@ -41,8 +42,8 @@ docker compose restart
 1. Connect your Fractal unit via USB MIDI
 2. Go to "Capo" in the navigation
 3. The plugin detects your MIDI device and sends a center value (0 shift)
-4. When a song loads, the plugin extracts the raw tuning offsets from the PSARC via its own API route and calculates the semitone shift
-5. The corresponding CC value is sent automatically to your MIDI device
+4. When a song loads, the plugin extracts tuning offsets from the PSARC (with CentOffset correction) for the active arrangement and calculates the semitone shift
+5. The corresponding CC value is sent automatically to your MIDI device — tuning is fetched in parallel with song loading for minimal delay
 6. Use the "Test" button to manually send a shift and verify the correct pitch change on your device
 
 > **Note:** The plugin includes a server-side route (`routes.py`) that reads tuning data directly from PSARC files, so it works without any modifications to the Slopsmith core.
