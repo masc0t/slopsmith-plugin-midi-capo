@@ -15,6 +15,15 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 - **Center on startup** — sends CC 64 (0 shift) on initialization so the Virtual Capo starts neutral
 - **Auto-save** — settings persist in localStorage, saved automatically on change
 
+## What's New
+
+### v1.1
+- **CentOffset fix** — CDLCs that use virtual capo encoding (positive tuning offsets with a negative CentOffset) now resolve to the correct pitch shift instead of shifting the wrong direction
+- **Arrangement-aware** — tuning now follows the active arrangement path (Lead, Rhythm, Bass) and updates automatically when you switch
+- **Drop/Standard badge** — the player button now shows "Drop -7" or "Standard -2" so you know at a glance whether to be in Drop D or E Standard
+- **Parallel fetch** — tuning is fetched alongside song loading instead of after, so the MIDI CC is sent faster
+- **LRU cache** — parsed PSARC tunings are cached in memory so arrangement switches and replays are instant
+
 ## Compatible Devices
 
 Designed for Fractal Audio units with a Virtual Capo Pitch block:
@@ -68,15 +77,6 @@ Unknown tuning shapes default to shift 0 (no change).
 ## Engaged <img width="2005" height="1364" alt="capo on" src="https://github.com/user-attachments/assets/cdd4532e-3be6-4bfa-9cb8-521f595c8f8f" />
 ## Bypassed <img width="2004" height="1363" alt="capo off" src="https://github.com/user-attachments/assets/e8e0ed8e-ba0f-433b-9cf9-8eed7307043c" />
 
-
-## What's New
-
-### v1.1
-- **CentOffset fix** — CDLCs that use virtual capo encoding (positive tuning offsets with a negative CentOffset) now resolve to the correct pitch shift instead of shifting the wrong direction
-- **Arrangement-aware** — tuning now follows the active arrangement path (Lead, Rhythm, Bass) and updates automatically when you switch
-- **Drop/Standard badge** — the player button now shows "Drop -7" or "Standard -2" so you know at a glance whether to be in Drop D or E Standard
-- **Parallel fetch** — tuning is fetched alongside song loading instead of after, so the MIDI CC is sent faster
-- **LRU cache** — parsed PSARC tunings are cached in memory so arrangement switches and replays are instant
 
 ## Other Plugins
 
