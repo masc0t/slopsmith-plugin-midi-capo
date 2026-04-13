@@ -2,13 +2,13 @@
 // Auto-sets pitch shift via MIDI CC based on song tuning.
 
 const _capoProfiles = {
-    fractal:   { name: 'Fractal Audio',      minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: null },
+    fractal:   { name: 'Fractal Audio',      minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
     kemper:    { name: 'Kemper',              minShift: -36, maxShift: 36, ccMin: 28, ccMax: 100, defaultCC: 38 },
-    line6:     { name: 'Line 6 Helix',        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: null },
-    boss:      { name: 'Boss GT-1000',        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: null },
-    neuraldsp: { name: 'Neural DSP QC',       minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: null },
-    headrush:  { name: 'Headrush',            minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: null },
-    custom:    { name: 'Custom',              minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: null },
+    line6:     { name: 'Line 6 Helix',        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
+    boss:      { name: 'Boss GT-1000',        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
+    neuraldsp: { name: 'Neural DSP QC',       minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
+    headrush:  { name: 'Headrush',            minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
+    custom:    { name: 'Custom',              minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
 };
 
 let _capoMidiAccess = null;
