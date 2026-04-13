@@ -2,7 +2,7 @@
 // Auto-sets pitch shift via MIDI CC based on song tuning.
 
 const _capoProfiles = {
-    fractal:   { name: 'Fractal Audio',      minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
+    fractal:   { name: 'Fractal Audio',      minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: null },
     kemper:    { name: 'Kemper',              minShift: -36, maxShift: 36, ccMin: 28, ccMax: 100, defaultCC: 38 },
     line6:     { name: 'Line 6 Helix',        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: null },
     boss:      { name: 'Boss GT-1000',        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: null },
