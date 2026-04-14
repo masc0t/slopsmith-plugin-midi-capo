@@ -8,7 +8,7 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 - **Automatic tuning detection** — reads the song's tuning and calculates the correct semitone shift, with CentOffset (virtual capo) correction for CDLCs that use it
 - **Arrangement-aware** — responds to the currently selected path (Lead, Rhythm, Bass) and re-fetches tuning on arrangement change
 - **Standard & Drop tuning support** — handles E Standard, D Standard, Drop D, Drop C, 7-string, and more
-- **Device profiles** — built-in profiles for Fractal Audio, Kemper, Line 6 Helix, Boss GT-1000, Neural DSP QC, and Headrush, plus a fully configurable Custom mode
+- **Device presets** — built-in presets for Fractal Audio, Kemper, Line 6 Helix, Boss GT-1000, Neural DSP QC, and Headrush — each populates sensible defaults that you can still customize
 - **Configurable CC & channel** — route to any MIDI channel and CC number to match your setup
 - **Player bar badge** — shows the current shift with tuning type indicator (e.g. "Drop -7" or "Standard -2"); click to disengage/re-engage the capo on the fly
 - **Device reconnect** — automatically re-sends the last shift if your USB MIDI device disconnects and reconnects mid-song
@@ -59,7 +59,7 @@ docker compose restart
 ## How It Works
 
 1. Connect your modeler via USB MIDI
-2. Go to **Settings** and select your device from the **Device** dropdown under Virtual Capo
+2. Go to **Settings** and select your device from the **Device** dropdown under Virtual Capo — this populates the CC#, shift range, and CC range as defaults, but all fields remain editable
 3. Go to **Capo** in the navigation — the plugin detects your MIDI device and sends a center value (0 shift)
 4. When a song loads, the plugin extracts tuning offsets from the PSARC (with CentOffset correction) for the active arrangement and calculates the semitone shift
 5. The corresponding CC value is sent automatically to your MIDI device — tuning is fetched in parallel with song loading for minimal delay
@@ -69,56 +69,57 @@ docker compose restart
 
 ## Device Setup
 
+> **Note:** Selecting a device preset populates all fields (CC#, shift range, CC value range) with sensible defaults for that device. All fields remain editable — adjust anything to match your specific setup.
+
 ### Fractal Audio (Axe-FX III / FM9 / FM3)
 
 1. **MIDI/Remote** — Go to Setup > MIDI/Remote > External. Set **External Control 1** to CC #18.
 2. **Pitch Block** — Place a Pitch block in your preset. Change **Type** to **Virtual Capo**.
 3. **Modifier** — Edit the Modifier for **Shift**. Set **Source 1** to **External 1**.
-4. **Plugin** — Select the **Fractal Audio** profile. Default CC is 18.
+4. **Plugin** — Select the **Fractal Audio** preset. Defaults: CC 18, shift ±24, CC range 0–127.
 
 ### Kemper (Profiler / Player / Stage)
 
 1. The Kemper uses **CC #38** for Rig Transpose — no configuration needed on the Kemper side.
-2. **Plugin** — Select the **Kemper** profile. CC is automatically set to 38.
-3. The Kemper supports a wider ±36 semitone range and uses CC values 28–100 (not the full 0–127).
+2. **Plugin** — Select the **Kemper** preset. Defaults: CC 38, shift ±36, CC range 28–100.
 
 ### Line 6 (Helix / HX Stomp / POD Go)
 
 1. **Pitch Block** — Add a Pitch Whammy or Simple Pitch block to your preset.
 2. **Controller Assign** — Assign the pitch parameter to a MIDI CC. Press the knob, select **MIDI CC**, and choose CC #18 (or any unused CC).
 3. **MIDI Settings** — Go to Global Settings > MIDI/Tempo. Ensure MIDI input is enabled on the correct port.
-4. **Plugin** — Select the **Line 6 Helix** profile. Set CC# to match what you assigned on the Helix.
+4. **Plugin** — Select the **Line 6 Helix** preset. Defaults: CC 18, shift ±24, CC range 0–127. Change CC# if you used a different number on the Helix.
 
 ### Boss GT-1000 / GX-100
 
 1. **Pitch Block** — Add a Pitch Shifter effect to your patch.
 2. **MIDI Assign** — In the Assign section, create an assignment: Target = Pitch Shifter Shift, Source = CC #18, Range = -24 to +24.
 3. **MIDI Settings** — Ensure MIDI is enabled on the USB port under System > MIDI.
-4. **Plugin** — Select the **Boss GT-1000** profile. Set CC# to match your assignment.
+4. **Plugin** — Select the **Boss GT-1000** preset. Defaults: CC 18, shift ±24, CC range 0–127. Change CC# if you used a different number.
 
 ### Neural DSP Quad Cortex
 
 1. **Pitch Block** — Add a Pitch Shifter block to your preset.
 2. **MIDI Learn** — Long-press the Shift parameter, tap **MIDI Learn**, and send CC #18 from the plugin's Test button.
 3. **MIDI Settings** — Go to Settings > MIDI. Ensure MIDI over USB is enabled.
-4. **Plugin** — Select the **Neural DSP QC** profile. Set CC# to match what you assigned.
+4. **Plugin** — Select the **Neural DSP QC** preset. Defaults: CC 18, shift ±24, CC range 0–127. Change CC# if you used a different number.
 
 ### Headrush (Pedalboard / MX5 / Prime)
 
 1. **Pitch Block** — Add a Wham or pitch effect to your rig.
 2. **MIDI Assign** — In the MIDI settings for the block, assign the pitch parameter to CC #18.
 3. **MIDI Settings** — Ensure MIDI input is enabled (USB or 1/8" TRS depending on model).
-4. **Plugin** — Select the **Headrush** profile. Set CC# to match your assignment.
+4. **Plugin** — Select the **Headrush** preset. Defaults: CC 18, shift ±24, CC range 0–127. Change CC# if you used a different number.
 
-### Custom (Any Device)
+### Custom
 
-Use this for any modeler not listed above, or for non-standard configurations.
+For any device not listed above. Select **Custom** and configure all fields manually:
 
-1. Select **Custom** from the Device dropdown.
-2. Set the **Min Shift** and **Max Shift** to match your device's pitch range in semitones (e.g. -24 to +24).
-3. Set **CC Min** and **CC Max** to match the CC value range your device expects (usually 0–127, but some devices use a subset like 28–100).
-4. Set the **CC#** to whichever CC number you've assigned on your device.
-5. The plugin maps semitones to CC values linearly across these ranges.
+- **CC#** — whichever CC number you've assigned on your device
+- **Min/Max Shift** — your device's pitch range in semitones (e.g. -24 to +24)
+- **CC Min/Max** — the CC value range your device expects (usually 0–127, but some devices use a subset like Kemper's 28–100)
+
+The plugin maps semitones to CC values linearly across these ranges.
 
 ### Supported Tunings
 
