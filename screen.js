@@ -27,17 +27,16 @@ function _capoGetSettings() {
     if (!_capoSettings) {
         const profileKey = localStorage.getItem('midi_capo_profile') || 'fractal';
         const profile = _capoProfiles[profileKey] || _capoProfiles.fractal;
-        const isCustom = profileKey === 'custom';
         _capoSettings = {
             enabled: localStorage.getItem('midi_capo_enabled') === 'true',
             profile: profileKey,
             channel: parseInt(localStorage.getItem('midi_capo_channel') || '0'),
             cc: parseInt(localStorage.getItem('midi_capo_cc') || String(profile.defaultCC || 0)),
             resetOnStop: localStorage.getItem('midi_capo_reset_on_stop') === 'true',
-            minShift: isCustom ? parseInt(localStorage.getItem('midi_capo_min_shift') || '-24') : profile.minShift,
-            maxShift: isCustom ? parseInt(localStorage.getItem('midi_capo_max_shift') || '24') : profile.maxShift,
-            ccMin: isCustom ? parseInt(localStorage.getItem('midi_capo_cc_min') || '0') : profile.ccMin,
-            ccMax: isCustom ? parseInt(localStorage.getItem('midi_capo_cc_max') || '127') : profile.ccMax,
+            minShift: parseInt(localStorage.getItem('midi_capo_min_shift') || String(profile.minShift)),
+            maxShift: parseInt(localStorage.getItem('midi_capo_max_shift') || String(profile.maxShift)),
+            ccMin: parseInt(localStorage.getItem('midi_capo_cc_min') || String(profile.ccMin)),
+            ccMax: parseInt(localStorage.getItem('midi_capo_cc_max') || String(profile.ccMax)),
         };
     }
     return _capoSettings;
@@ -429,17 +428,11 @@ function _capoUpdateStatus() {
 function _capoOnProfileChange(profileKey) {
     const profile = _capoProfiles[profileKey] || _capoProfiles.fractal;
     _capoSaveSetting('midi_capo_profile', profileKey);
-    if (profile.defaultCC !== null) {
-        _capoSaveSetting('midi_capo_cc', String(profile.defaultCC));
-        const ccEl = document.getElementById('midi-capo-cc');
-        if (ccEl) ccEl.value = profile.defaultCC;
-    }
-    if (profileKey === 'custom') {
-        _capoSaveSetting('midi_capo_min_shift', String(profile.minShift));
-        _capoSaveSetting('midi_capo_max_shift', String(profile.maxShift));
-        _capoSaveSetting('midi_capo_cc_min', String(profile.ccMin));
-        _capoSaveSetting('midi_capo_cc_max', String(profile.ccMax));
-    }
+    _capoSaveSetting('midi_capo_cc', String(profile.defaultCC || 18));
+    _capoSaveSetting('midi_capo_min_shift', String(profile.minShift));
+    _capoSaveSetting('midi_capo_max_shift', String(profile.maxShift));
+    _capoSaveSetting('midi_capo_cc_min', String(profile.ccMin));
+    _capoSaveSetting('midi_capo_cc_max', String(profile.ccMax));
     _capoLoadSettings();
 }
 
@@ -454,22 +447,17 @@ function _capoLoadSettings() {
     if (cc) cc.value = localStorage.getItem('midi_capo_cc') || '18';
     if (ros) ros.checked = localStorage.getItem('midi_capo_reset_on_stop') === 'true';
     const profileKey = localStorage.getItem('midi_capo_profile') || 'fractal';
+    const profile = _capoProfiles[profileKey] || _capoProfiles.fractal;
     if (prof) prof.value = profileKey;
-    // Show/hide custom fields
-    const customFields = document.getElementById('midi-capo-custom-fields');
-    if (customFields) {
-        customFields.style.display = profileKey === 'custom' ? 'flex' : 'none';
-        if (profileKey === 'custom') {
-            const ms = document.getElementById('midi-capo-min-shift');
-            const xs = document.getElementById('midi-capo-max-shift');
-            const cm = document.getElementById('midi-capo-cc-min');
-            const cx = document.getElementById('midi-capo-cc-max');
-            if (ms) ms.value = localStorage.getItem('midi_capo_min_shift') || '-24';
-            if (xs) xs.value = localStorage.getItem('midi_capo_max_shift') || '24';
-            if (cm) cm.value = localStorage.getItem('midi_capo_cc_min') || '0';
-            if (cx) cx.value = localStorage.getItem('midi_capo_cc_max') || '127';
-        }
-    }
+    // Populate range fields (always visible, always editable)
+    const ms = document.getElementById('midi-capo-min-shift');
+    const xs = document.getElementById('midi-capo-max-shift');
+    const cm = document.getElementById('midi-capo-cc-min');
+    const cx = document.getElementById('midi-capo-cc-max');
+    if (ms) ms.value = localStorage.getItem('midi_capo_min_shift') || String(profile.minShift);
+    if (xs) xs.value = localStorage.getItem('midi_capo_max_shift') || String(profile.maxShift);
+    if (cm) cm.value = localStorage.getItem('midi_capo_cc_min') || String(profile.ccMin);
+    if (cx) cx.value = localStorage.getItem('midi_capo_cc_max') || String(profile.ccMax);
     // Update test shift range
     const settings = _capoGetSettings();
     const testShift = document.getElementById('capo-test-shift');
