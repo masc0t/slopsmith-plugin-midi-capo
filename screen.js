@@ -2,13 +2,9 @@
 // Auto-sets pitch shift via MIDI CC based on song tuning.
 
 const _capoProfiles = {
-    fractal:   { name: 'Fractal Audio',      minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
-    kemper:    { name: 'Kemper',              minShift: -36, maxShift: 36, ccMin: 28, ccMax: 100, defaultCC: 38 },
-    line6:     { name: 'Line 6 Helix',        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
-    boss:      { name: 'Boss GT-1000',        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
-    neuraldsp: { name: 'Neural DSP QC',       minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
-    headrush:  { name: 'Headrush',            minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
-    custom:    { name: 'Custom',              minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
+    standard:  { name: 'Standard (Fractal, Helix, etc.)', minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
+    kemper:    { name: 'Kemper',                        minShift: -36, maxShift: 36, ccMin: 28, ccMax: 100, defaultCC: 38 },
+    custom:    { name: 'Custom',                        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
 };
 
 let _capoMidiAccess = null;
@@ -25,8 +21,8 @@ let _capoSettings = null;
 
 function _capoGetSettings() {
     if (!_capoSettings) {
-        const profileKey = localStorage.getItem('midi_capo_profile') || 'fractal';
-        const profile = _capoProfiles[profileKey] || _capoProfiles.fractal;
+        const profileKey = localStorage.getItem('midi_capo_profile') || 'standard';
+        const profile = _capoProfiles[profileKey] || _capoProfiles.standard;
         _capoSettings = {
             enabled: localStorage.getItem('midi_capo_enabled') === 'true',
             profile: profileKey,
@@ -407,7 +403,7 @@ function _capoUpdateStatus() {
     }
     const tuning = _capoLastTuningOffsets;
     if (!tuning) {
-        const profileName = (_capoProfiles[settings.profile] || _capoProfiles.fractal).name;
+        const profileName = (_capoProfiles[settings.profile] || _capoProfiles.standard).name;
         el.innerHTML = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 text-xs text-gray-500">
             Virtual Capo enabled — ${esc(profileName)} (CC#${settings.cc}, Ch${settings.channel}) — no song loaded</div>`;
         return;
@@ -415,7 +411,7 @@ function _capoUpdateStatus() {
     const shift = _capoCalcShift(tuning);
     const val = _capoShiftToCC(shift, settings);
     const name = _capoTuningLabel(tuning);
-    const profileName = (_capoProfiles[settings.profile] || _capoProfiles.fractal).name;
+    const profileName = (_capoProfiles[settings.profile] || _capoProfiles.standard).name;
     el.innerHTML = `<div class="bg-dark-700/50 border border-amber-800/30 rounded-xl p-3 flex items-center gap-3 text-xs">
         <span class="text-amber-400 font-semibold">Virtual Capo</span>
         <span class="text-gray-500">${esc(profileName)}</span>
@@ -426,7 +422,7 @@ function _capoUpdateStatus() {
 }
 
 function _capoOnProfileChange(profileKey) {
-    const profile = _capoProfiles[profileKey] || _capoProfiles.fractal;
+    const profile = _capoProfiles[profileKey] || _capoProfiles.standard;
     _capoSaveSetting('midi_capo_profile', profileKey);
     _capoSaveSetting('midi_capo_cc', String(profile.defaultCC || 18));
     _capoSaveSetting('midi_capo_min_shift', String(profile.minShift));
@@ -446,8 +442,9 @@ function _capoLoadSettings() {
     if (ch) ch.value = localStorage.getItem('midi_capo_channel') || '0';
     if (cc) cc.value = localStorage.getItem('midi_capo_cc') || '18';
     if (ros) ros.checked = localStorage.getItem('midi_capo_reset_on_stop') === 'true';
-    const profileKey = localStorage.getItem('midi_capo_profile') || 'fractal';
-    const profile = _capoProfiles[profileKey] || _capoProfiles.fractal;
+    let profileKey = localStorage.getItem('midi_capo_profile') || 'standard';
+    if (!_capoProfiles[profileKey]) profileKey = 'standard';
+    const profile = _capoProfiles[profileKey];
     if (prof) prof.value = profileKey;
     // Populate range fields (always visible, always editable)
     const ms = document.getElementById('midi-capo-min-shift');
