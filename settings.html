@@ -1,24 +1,68 @@
 <div>
     <label class="text-sm font-medium text-gray-400 mb-2 block">Virtual Capo</label>
-    <p class="text-xs text-gray-500 mb-3">Automatically send a CC to set the Pitch block Virtual Capo Shift based on song tuning. Assumes your guitar is in E Standard or Drop D.</p>
-    <div class="flex items-center gap-4 flex-wrap" id="midi-capo-settings">
-        <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" id="midi-capo-enabled"
-                onchange="localStorage.setItem('midi_capo_enabled', this.checked)"
-                class="accent-amber-500">
-            <span class="text-xs text-gray-300">Enable</span>
-        </label>
-        <div class="flex items-center gap-2">
-            <label class="text-xs text-gray-500">Channel</label>
-            <input type="number" id="midi-capo-channel" min="0" max="15" value="0"
-                onchange="localStorage.setItem('midi_capo_channel', this.value)"
-                class="w-14 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+    <p class="text-xs text-gray-500 mb-3">Automatically send a MIDI CC to set pitch shift based on song tuning. Assumes your guitar is in E Standard or Drop D.</p>
+    <div class="flex flex-col gap-3" id="midi-capo-settings">
+        <div class="flex items-center gap-4 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="midi-capo-enabled"
+                    onchange="_capoSaveSetting('midi_capo_enabled', this.checked)"
+                    class="accent-amber-500">
+                <span class="text-xs text-gray-300">Enable</span>
+            </label>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Device</label>
+                <select id="midi-capo-profile"
+                    onchange="_capoOnProfileChange(this.value)"
+                    class="bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                    <option value="standard">Standard (Fractal, Helix, etc.)</option>
+                    <option value="kemper">Kemper</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Channel</label>
+                <input type="number" id="midi-capo-channel" min="0" max="15" value="0"
+                    onchange="_capoSaveSetting('midi_capo_channel', this.value)"
+                    class="w-14 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">CC#</label>
+                <input type="number" id="midi-capo-cc" min="0" max="127" value="18"
+                    onchange="_capoSaveSetting('midi_capo_cc', this.value)"
+                    class="w-14 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="midi-capo-reset-on-stop"
+                    onchange="_capoSaveSetting('midi_capo_reset_on_stop', this.checked)"
+                    class="accent-amber-500">
+                <span class="text-xs text-gray-300">Reset on stop</span>
+            </label>
         </div>
-        <div class="flex items-center gap-2">
-            <label class="text-xs text-gray-500">CC#</label>
-            <input type="number" id="midi-capo-cc" min="0" max="127" value="18"
-                onchange="localStorage.setItem('midi_capo_cc', this.value)"
-                class="w-14 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+        <div class="flex items-center gap-4 flex-wrap">
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Min Shift</label>
+                <input type="number" id="midi-capo-min-shift" min="-48" max="0" value="-24"
+                    onchange="_capoSaveSetting('midi_capo_min_shift', this.value)"
+                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Max Shift</label>
+                <input type="number" id="midi-capo-max-shift" min="0" max="48" value="24"
+                    onchange="_capoSaveSetting('midi_capo_max_shift', this.value)"
+                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">CC Min</label>
+                <input type="number" id="midi-capo-cc-min" min="0" max="127" value="0"
+                    onchange="_capoSaveSetting('midi_capo_cc_min', this.value)"
+                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">CC Max</label>
+                <input type="number" id="midi-capo-cc-max" min="0" max="127" value="127"
+                    onchange="_capoSaveSetting('midi_capo_cc_max', this.value)"
+                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+            </div>
         </div>
     </div>
 </div>

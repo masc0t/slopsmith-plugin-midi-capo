@@ -1,40 +1,94 @@
 // Virtual Capo plugin
-// Auto-sets Fractal Pitch block Shift via MIDI CC based on song tuning.
+// Auto-sets pitch shift via MIDI CC based on song tuning.
+
+const _capoProfiles = {
+    standard:  { name: 'Standard (Fractal, Helix, etc.)', minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
+    kemper:    { name: 'Kemper',                        minShift: -36, maxShift: 36, ccMin: 28, ccMax: 100, defaultCC: 38 },
+    custom:    { name: 'Custom',                        minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18 },
+};
 
 let _capoMidiAccess = null;
 let _capoMidiOutput = null;
 let _capoLastTitle = null;
 let _capoLastShift = null;
+let _capoLastTuningOffsets = null;
+let _capoLastArrangement = null;
+let _capoLastFilename = null;
+let _capoDisengaged = false;
+let _capoSettings = null;
+
+// ── Settings (cached) ──────────────────────────────────────────────────
+
+function _capoGetSettings() {
+    if (!_capoSettings) {
+        const profileKey = localStorage.getItem('midi_capo_profile') || 'standard';
+        const profile = _capoProfiles[profileKey] || _capoProfiles.standard;
+        _capoSettings = {
+            enabled: localStorage.getItem('midi_capo_enabled') === 'true',
+            profile: profileKey,
+            channel: parseInt(localStorage.getItem('midi_capo_channel') || '0'),
+            cc: parseInt(localStorage.getItem('midi_capo_cc') || String(profile.defaultCC || 0)),
+            resetOnStop: localStorage.getItem('midi_capo_reset_on_stop') === 'true',
+            minShift: parseInt(localStorage.getItem('midi_capo_min_shift') || String(profile.minShift)),
+            maxShift: parseInt(localStorage.getItem('midi_capo_max_shift') || String(profile.maxShift)),
+            ccMin: parseInt(localStorage.getItem('midi_capo_cc_min') || String(profile.ccMin)),
+            ccMax: parseInt(localStorage.getItem('midi_capo_cc_max') || String(profile.ccMax)),
+        };
+    }
+    return _capoSettings;
+}
+
+function _capoSaveSetting(key, value) {
+    localStorage.setItem(key, value);
+    _capoSettings = null; // invalidate cache
+}
 
 // ── Web MIDI API ────────────────────────────────────────────────────────
 
-async function capoMidiInit() {
-    const status = document.getElementById('capo-midi-status');
+function _capoInitMidi(updateUI) {
     if (!navigator.requestMIDIAccess) {
-        status.innerHTML = `
-            <div class="bg-red-900/20 border border-red-800/30 rounded-xl p-4 text-sm">
-                <p class="text-red-400 font-semibold">Web MIDI not supported</p>
-                <p class="text-gray-400">Use Chrome or Edge. Firefox does not support Web MIDI.</p>
-            </div>`;
-        return;
+        if (updateUI) {
+            document.getElementById('capo-midi-status').innerHTML = `
+                <div class="bg-red-900/20 border border-red-800/30 rounded-xl p-4 text-sm">
+                    <p class="text-red-400 font-semibold">Web MIDI not supported</p>
+                    <p class="text-gray-400">Use Chrome or Edge. Firefox does not support Web MIDI.</p>
+                </div>`;
+        }
+        return Promise.resolve();
     }
 
-    try {
-        _capoMidiAccess = await navigator.requestMIDIAccess({ sysex: false });
-        _capoUpdateDevices();
-        _capoMidiAccess.onstatechange = () => { _capoUpdateDevices(); _capoResend(); };
-    } catch (e) {
-        status.innerHTML = `
-            <div class="bg-red-900/20 border border-red-800/30 rounded-xl p-4 text-sm">
-                <p class="text-red-400 font-semibold">MIDI access denied</p>
-                <p class="text-gray-400">${e.message}</p>
-            </div>`;
-    }
+    return navigator.requestMIDIAccess({ sysex: false }).then(access => {
+        _capoMidiAccess = access;
+        _capoPickOutput();
+        if (updateUI) _capoRenderDevices();
+        _capoSendCenter();
+        access.onstatechange = () => {
+            _capoPickOutput();
+            if (updateUI) _capoRenderDevices();
+            _capoResend();
+        };
+    }).catch(e => {
+        if (updateUI) {
+            document.getElementById('capo-midi-status').innerHTML = `
+                <div class="bg-red-900/20 border border-red-800/30 rounded-xl p-4 text-sm">
+                    <p class="text-red-400 font-semibold">MIDI access denied</p>
+                    <p class="text-gray-400">${e.message}</p>
+                </div>`;
+        }
+    });
 }
 
-function _capoUpdateDevices() {
-    const status = document.getElementById('capo-midi-status');
+function _capoPickOutput() {
     if (!_capoMidiAccess) return;
+    const outputs = [];
+    _capoMidiAccess.outputs.forEach(o => outputs.push(o));
+    const savedId = localStorage.getItem('midi_output_id');
+    _capoMidiOutput = outputs.find(o => o.id === savedId) || outputs[0] || null;
+}
+
+function _capoRenderDevices() {
+    const status = document.getElementById('capo-midi-status');
+    if (!status || !_capoMidiAccess) return;
 
     const outputs = [];
     _capoMidiAccess.outputs.forEach(o => outputs.push(o));
@@ -45,27 +99,21 @@ function _capoUpdateDevices() {
                 <p class="text-yellow-400 font-semibold">No MIDI output devices</p>
                 <p class="text-gray-400">Connect your amp/modeler via USB MIDI.</p>
             </div>`;
-        _capoMidiOutput = null;
         document.getElementById('capo-test').classList.add('hidden');
         return;
     }
-
-    const savedId = localStorage.getItem('midi_output_id');
-    _capoMidiOutput = outputs.find(o => o.id === savedId) || outputs[0];
 
     let html = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 flex items-center gap-3">
         <span class="text-green-400 text-xs">MIDI Ready</span>
         <select id="capo-device-select" onchange="capoSelectDevice(this.value)"
             class="bg-dark-600 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">`;
     for (const o of outputs) {
-        const selected = o.id === _capoMidiOutput.id ? 'selected' : '';
+        const selected = _capoMidiOutput && o.id === _capoMidiOutput.id ? 'selected' : '';
         html += `<option value="${o.id}" ${selected}>${esc(o.name)}</option>`;
     }
     html += `</select></div>`;
     status.innerHTML = html;
     document.getElementById('capo-test').classList.remove('hidden');
-
-    _capoSendCenter();
 }
 
 function capoSelectDevice(id) {
@@ -86,20 +134,12 @@ function _capoMidiSend(channel, cc, value) {
 function capoTestSend() {
     const settings = _capoGetSettings();
     const shift = parseInt(document.getElementById('capo-test-shift').value) || 0;
-    const value = _capoShiftToCC(shift);
+    const value = _capoShiftToCC(shift, settings);
     _capoMidiSend(settings.channel, settings.cc, value);
     console.log(`[MIDI] Virtual Capo test: shift=${shift}, CC#${settings.cc}=${value}`);
 }
 
 // ── Virtual Capo Logic ──────────────────────────────────────────────────
-
-function _capoGetSettings() {
-    return {
-        enabled: localStorage.getItem('midi_capo_enabled') === 'true',
-        channel: parseInt(localStorage.getItem('midi_capo_channel') || '0'),
-        cc: parseInt(localStorage.getItem('midi_capo_cc') || '18'),
-    };
-}
 
 function _capoFetchTuning(filename, arrangement) {
     let url = `/api/plugins/midi_capo/tuning/${encodeURIComponent(decodeURIComponent(filename))}`;
@@ -111,7 +151,7 @@ function _capoFetchTuning(filename, arrangement) {
 
 function _capoCalcShift(tuning) {
     // tuning = array of 6 ints, offsets from E Standard
-    // Returns the semitone shift for the Fractal Virtual Capo
+    // Returns the semitone shift for the Virtual Capo
     if (!tuning || tuning.length < 6) return 0;
 
     const [s0, s1, s2, s3, s4, s5] = tuning;
@@ -144,17 +184,56 @@ function _capoIsDrop(tuning) {
     return tuning[0] === tuning[1] - 2;
 }
 
-function _capoShiftToCC(shift) {
-    // Fractal Virtual Capo Shift: modifier maps CC 0-127 to parameter range
-    // With range -24..+24: center (0 shift) = 64, each semitone = 127/48 ≈ 2.646
-    return Math.max(0, Math.min(127, Math.round(64 + shift * (127 / 48))));
+const _capoTuningNames = {
+    '0,0,0,0,0,0': 'E Standard',
+    '-1,-1,-1,-1,-1,-1': 'Eb Standard',
+    '-2,-2,-2,-2,-2,-2': 'D Standard',
+    '-3,-3,-3,-3,-3,-3': 'C# Standard',
+    '-4,-4,-4,-4,-4,-4': 'C Standard',
+    '-5,-5,-5,-5,-5,-5': 'B Standard',
+    '-6,-6,-6,-6,-6,-6': 'Bb Standard',
+    '-7,-7,-7,-7,-7,-7': 'A Standard',
+    '-2,0,0,0,0,0': 'Drop D',
+    '-3,-1,-1,-1,-1,-1': 'Drop C#',
+    '-4,-2,-2,-2,-2,-2': 'Drop C',
+    '-5,-3,-3,-3,-3,-3': 'Drop B',
+    '-6,-4,-4,-4,-4,-4': 'Drop Bb',
+    '-7,-5,-5,-5,-5,-5': 'Drop A',
+    '-8,-6,-6,-6,-6,-6': 'Drop Ab',
+    '-9,-7,-7,-7,-7,-7': 'Drop G',
+};
+
+function _capoTuningLabel(tuning) {
+    if (!tuning) return '';
+    const key = tuning.join(',');
+    if (_capoTuningNames[key]) return _capoTuningNames[key];
+    // Try matching just strings 0-3 for 4-string bass (last 2 are 0)
+    if (tuning[4] === 0 && tuning[5] === 0) {
+        for (const [k, name] of Object.entries(_capoTuningNames)) {
+            const ref = k.split(',').map(Number);
+            if (ref[0] === tuning[0] && ref[1] === tuning[1] && ref[2] === tuning[2] && ref[3] === tuning[3]) {
+                return name + ' (Bass)';
+            }
+        }
+    }
+    return `[${tuning.join(', ')}]`;
+}
+
+function _capoShiftToCC(shift, s) {
+    s = s || _capoGetSettings();
+    const clamped = Math.max(s.minShift, Math.min(s.maxShift, shift));
+    const range = s.maxShift - s.minShift;
+    if (range === 0) return s.ccMin;
+    const cc = s.ccMin + (clamped - s.minShift) / range * (s.ccMax - s.ccMin);
+    return Math.max(s.ccMin, Math.min(s.ccMax, Math.round(cc)));
 }
 
 function _capoSendCenter() {
     const settings = _capoGetSettings();
     if (!settings.enabled || !_capoMidiOutput) return;
-    _capoMidiSend(settings.channel, settings.cc, 64);
-    console.log(`[MIDI] Virtual Capo: init center (0 shift), CC#${settings.cc}=64`);
+    const center = _capoShiftToCC(0, settings);
+    _capoMidiSend(settings.channel, settings.cc, center);
+    console.log(`[MIDI] Virtual Capo: init center (0 shift), CC#${settings.cc}=${center}`);
 }
 
 function _capoSend(tuning) {
@@ -166,7 +245,7 @@ function _capoSend(tuning) {
     _capoLastShift = shift;
     _capoUpdateBadge(shift, drop);
     if (_capoDisengaged) return;
-    const value = _capoShiftToCC(shift);
+    const value = _capoShiftToCC(shift, settings);
     _capoMidiSend(settings.channel, settings.cc, value);
     console.log(`[MIDI] Virtual Capo: tuning=${JSON.stringify(tuning)}, shift=${shift}, CC#${settings.cc}=${value}`);
 }
@@ -175,48 +254,55 @@ function _capoResend() {
     if (_capoLastShift === null) return;
     const settings = _capoGetSettings();
     if (!settings.enabled || !_capoMidiOutput) return;
-    const value = _capoShiftToCC(_capoLastShift);
+    const value = _capoShiftToCC(_capoLastShift, settings);
     _capoMidiSend(settings.channel, settings.cc, value);
     console.log(`[MIDI] Virtual Capo: resend shift=${_capoLastShift}, CC#${settings.cc}=${value}`);
 }
 
-let _capoLastTuningOffsets = null;
-let _capoLastArrangement = null;
-let _capoLastFilename = null;
-
-function _capoCheck() {
-    const info = highway.getSongInfo();
-    if (!info || !info.title) return;
-
-    const arrChanged = info.arrangement !== _capoLastArrangement;
-    const songChanged = info.title !== _capoLastTitle;
-    if (!songChanged && !arrChanged) return;
-
-    // Only use websocket tuning if core provides it (skips API fetch path)
-    if (info.tuning && Array.isArray(info.tuning)) {
-        _capoLastTitle = info.title;
-        _capoLastArrangement = info.arrangement;
-        _capoLastTuningOffsets = info.tuning;
-        _capoSend(info.tuning);
-    } else if (arrChanged && _capoLastFilename) {
-        // Arrangement changed — re-fetch tuning for new path
-        _capoLastArrangement = info.arrangement;
-        _capoFetchTuning(_capoLastFilename, info.arrangement).then(offsets => {
-            if (offsets) {
-                _capoLastTuningOffsets = offsets;
-                _capoSend(offsets);
-            }
-        }).catch(() => {});
-    }
-    // Otherwise the playSong wrapper handles it via plugin route
+function _capoReset() {
+    _capoLastTitle = null;
+    _capoLastArrangement = null;
+    _capoLastTuningOffsets = null;
+    _capoLastShift = null;
+    _capoDisengaged = false;
+    _capoSendCenter();
+    const btn = document.getElementById('btn-capo');
+    if (btn) btn.remove();
 }
-
-// Poll for song tuning changes
-setInterval(_capoCheck, 100);
 
 // ── Player Integration ──────────────────────────────────────────────────
 
-let _capoDisengaged = false;
+function _capoOnSongLoad(filename, arrangement) {
+    _capoLastTitle = null;
+    _capoLastArrangement = null;
+    _capoLastTuningOffsets = null;
+    _capoLastFilename = filename;
+    // Return the fetch promise so caller can await if needed
+    return _capoFetchTuning(filename, arrangement);
+}
+
+function _capoOnSongReady(tuningPromise) {
+    _capoInjectBadge();
+    tuningPromise.then(offsets => {
+        if (offsets) {
+            const info = highway.getSongInfo();
+            _capoLastTuningOffsets = offsets;
+            _capoLastTitle = info?.title || '';
+            _capoLastArrangement = info?.arrangement || '';
+            _capoSend(offsets);
+        }
+    }).catch(() => {});
+}
+
+function _capoOnArrangementChange(filename, arrangement) {
+    _capoLastArrangement = arrangement;
+    _capoFetchTuning(filename, arrangement).then(offsets => {
+        if (offsets) {
+            _capoLastTuningOffsets = offsets;
+            _capoSend(offsets);
+        }
+    }).catch(() => {});
+}
 
 function _capoInjectBadge() {
     const controls = document.getElementById('player-controls');
@@ -239,7 +325,7 @@ function _capoToggleDisengage() {
         _capoResend();
     } else {
         _capoDisengaged = true;
-        _capoMidiSend(settings.channel, settings.cc, 64);
+        _capoMidiSend(settings.channel, settings.cc, _capoShiftToCC(0, settings));
     }
     _capoStyleBadge();
 }
@@ -261,33 +347,46 @@ function _capoUpdateBadge(shift, drop) {
     if (!btn) return;
     const label = drop ? 'Drop' : 'Standard';
     btn.textContent = `${label} ${shift >= 0 ? '+' : ''}${shift}`;
+    btn.title = _capoTuningLabel(_capoLastTuningOffsets);
     if (_capoDisengaged) {
         _capoDisengaged = false;
         _capoStyleBadge();
     }
 }
 
+// ── Hooks into core ─────────────────────────────────────────────────────
+
+// Wrap playSong: start tuning fetch in parallel with song load
 (function() {
     const origPlaySong = window.playSong;
     window.playSong = async function(filename, arrangement) {
-        _capoLastTitle = null;
-        _capoLastArrangement = null;
-        _capoLastTuningOffsets = null;
-        _capoLastFilename = filename;
-        // Start tuning fetch in parallel with song load
-        const tuningPromise = _capoFetchTuning(filename, arrangement);
+        const tuningPromise = _capoOnSongLoad(filename, arrangement);
         await origPlaySong(filename, arrangement);
-        _capoInjectBadge();
-        // Use pre-fetched tuning (should already be resolved by now)
-        tuningPromise.then(offsets => {
-            if (offsets) {
-                const info = highway.getSongInfo();
-                _capoLastTuningOffsets = offsets;
-                _capoLastTitle = info?.title || '';
-                _capoLastArrangement = info?.arrangement || '';
-                _capoSend(offsets);
-            }
-        }).catch(() => {});
+        _capoOnSongReady(tuningPromise);
+    };
+})();
+
+// Wrap changeArrangement: re-fetch tuning for the new path
+(function() {
+    const origChangeArrangement = window.changeArrangement;
+    window.changeArrangement = function(index) {
+        origChangeArrangement(index);
+        // Look up arrangement name from the dropdown
+        const sel = document.getElementById('arr-select');
+        const opt = sel?.options[sel.selectedIndex];
+        const arrName = opt ? opt.textContent.replace(/\s*\(.*\)$/, '') : '';
+        if (_capoLastFilename) {
+            _capoOnArrangementChange(_capoLastFilename, arrName);
+        }
+    };
+})();
+
+// Wrap highway.stop: send center CC when player closes
+(function() {
+    const origStop = highway.stop;
+    highway.stop = function() {
+        origStop.call(highway);
+        if (_capoGetSettings().resetOnStop) _capoReset();
     };
 })();
 
@@ -304,50 +403,72 @@ function _capoUpdateStatus() {
     }
     const tuning = _capoLastTuningOffsets;
     if (!tuning) {
+        const profileName = (_capoProfiles[settings.profile] || _capoProfiles.standard).name;
         el.innerHTML = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 text-xs text-gray-500">
-            Virtual Capo enabled (CC#${settings.cc}, Ch${settings.channel}) — no song loaded</div>`;
+            Virtual Capo enabled — ${esc(profileName)} (CC#${settings.cc}, Ch${settings.channel}) — no song loaded</div>`;
         return;
     }
     const shift = _capoCalcShift(tuning);
-    const val = _capoShiftToCC(shift);
+    const val = _capoShiftToCC(shift, settings);
+    const name = _capoTuningLabel(tuning);
+    const profileName = (_capoProfiles[settings.profile] || _capoProfiles.standard).name;
     el.innerHTML = `<div class="bg-dark-700/50 border border-amber-800/30 rounded-xl p-3 flex items-center gap-3 text-xs">
         <span class="text-amber-400 font-semibold">Virtual Capo</span>
-        <span class="text-gray-400">Tuning: [${tuning.join(', ')}]</span>
+        <span class="text-gray-500">${esc(profileName)}</span>
+        <span class="text-gray-400">${name}</span>
         <span class="text-gray-400">Shift: ${shift >= 0 ? '+' : ''}${shift}</span>
         <span class="text-gray-500">CC#${settings.cc} Ch${settings.channel} → ${val}</span>
     </div>`;
+}
+
+function _capoOnProfileChange(profileKey) {
+    const profile = _capoProfiles[profileKey] || _capoProfiles.standard;
+    _capoSaveSetting('midi_capo_profile', profileKey);
+    _capoSaveSetting('midi_capo_cc', String(profile.defaultCC || 18));
+    _capoSaveSetting('midi_capo_min_shift', String(profile.minShift));
+    _capoSaveSetting('midi_capo_max_shift', String(profile.maxShift));
+    _capoSaveSetting('midi_capo_cc_min', String(profile.ccMin));
+    _capoSaveSetting('midi_capo_cc_max', String(profile.ccMax));
+    _capoLoadSettings();
 }
 
 function _capoLoadSettings() {
     const en = document.getElementById('midi-capo-enabled');
     const ch = document.getElementById('midi-capo-channel');
     const cc = document.getElementById('midi-capo-cc');
+    const ros = document.getElementById('midi-capo-reset-on-stop');
+    const prof = document.getElementById('midi-capo-profile');
     if (en) en.checked = localStorage.getItem('midi_capo_enabled') === 'true';
     if (ch) ch.value = localStorage.getItem('midi_capo_channel') || '0';
     if (cc) cc.value = localStorage.getItem('midi_capo_cc') || '18';
+    if (ros) ros.checked = localStorage.getItem('midi_capo_reset_on_stop') === 'true';
+    let profileKey = localStorage.getItem('midi_capo_profile') || 'standard';
+    if (!_capoProfiles[profileKey]) profileKey = 'standard';
+    const profile = _capoProfiles[profileKey];
+    if (prof) prof.value = profileKey;
+    // Populate range fields (always visible, always editable)
+    const ms = document.getElementById('midi-capo-min-shift');
+    const xs = document.getElementById('midi-capo-max-shift');
+    const cm = document.getElementById('midi-capo-cc-min');
+    const cx = document.getElementById('midi-capo-cc-max');
+    if (ms) ms.value = localStorage.getItem('midi_capo_min_shift') || String(profile.minShift);
+    if (xs) xs.value = localStorage.getItem('midi_capo_max_shift') || String(profile.maxShift);
+    if (cm) cm.value = localStorage.getItem('midi_capo_cc_min') || String(profile.ccMin);
+    if (cx) cx.value = localStorage.getItem('midi_capo_cc_max') || String(profile.ccMax);
+    // Update test shift range
+    const settings = _capoGetSettings();
+    const testShift = document.getElementById('capo-test-shift');
+    if (testShift) {
+        testShift.min = settings.minShift;
+        testShift.max = settings.maxShift;
+    }
 }
 
 // Hydrate settings inputs once DOM is ready
 setTimeout(_capoLoadSettings, 100);
 
-// Init MIDI on page load so Virtual Capo center is sent early
-if (navigator.requestMIDIAccess) {
-    navigator.requestMIDIAccess({ sysex: false }).then(access => {
-        _capoMidiAccess = access;
-        const outputs = [];
-        access.outputs.forEach(o => outputs.push(o));
-        const savedId = localStorage.getItem('midi_output_id');
-        _capoMidiOutput = outputs.find(o => o.id === savedId) || outputs[0] || null;
-        if (_capoMidiOutput) _capoSendCenter();
-        access.onstatechange = () => {
-            const outs = [];
-            _capoMidiAccess.outputs.forEach(o => outs.push(o));
-            const saved = localStorage.getItem('midi_output_id');
-            _capoMidiOutput = outs.find(o => o.id === saved) || outs[0] || null;
-            _capoResend();
-        };
-    }).catch(() => {});
-}
+// Init MIDI on page load (no UI update — screen may not be visible)
+_capoInitMidi(false);
 
 // Init on screen show
 (function() {
@@ -355,7 +476,7 @@ if (navigator.requestMIDIAccess) {
     window.showScreen = function(id) {
         origShowScreen(id);
         if (id === 'plugin-midi_capo') {
-            capoMidiInit();
+            _capoInitMidi(true);
             _capoUpdateStatus();
         }
         if (id === 'settings') {
