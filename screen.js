@@ -1,4 +1,4 @@
-// Virtual Capo plugin
+// MIDI Capo plugin
 // Auto-sets pitch shift via MIDI CC based on song tuning.
 
 const _capoProfiles = {
@@ -184,11 +184,11 @@ function capoTestSend() {
     const settings = _capoGetSettings();
     const shift = parseInt(document.getElementById('capo-test-shift').value) || 0;
     const value = _capoShiftToCC(shift, settings);
-    console.log(`[MIDI] Virtual Capo test: shift=${shift}, CC#${settings.cc}=${value}`);
+    console.log(`[MIDI] MIDI Capo test: shift=${shift}, CC#${settings.cc}=${value}`);
     _capoMidiSend(settings.channel, settings.cc, value);
 }
 
-// ── Virtual Capo Logic ──────────────────────────────────────────────────
+// ── MIDI Capo Logic ──────────────────────────────────────────────────
 
 function _capoFetchTuning(filename, arrangement) {
     let url = `/api/plugins/midi_capo/tuning/${encodeURIComponent(decodeURIComponent(filename))}`;
@@ -200,7 +200,7 @@ function _capoFetchTuning(filename, arrangement) {
 
 function _capoCalcShift(tuning) {
     // tuning = array of 6 ints, offsets from E Standard
-    // Returns the semitone shift for the Virtual Capo
+    // Returns the semitone shift for the MIDI Capo
     if (!tuning || tuning.length < 6) return 0;
 
     const [s0, s1, s2, s3, s4, s5] = tuning;
@@ -284,7 +284,7 @@ function _capoSendCenter() {
     if (!settings.enabled || (!_capoMidiOutput && outputId !== 'internal' && !hasInternal)) return;
     const center = _capoShiftToCC(0, settings);
     _capoMidiSend(settings.channel, settings.cc, center);
-    console.log(`[MIDI] Virtual Capo: init center (0 shift), CC#${settings.cc}=${center}`);
+    console.log(`[MIDI] MIDI Capo: init center (0 shift), CC#${settings.cc}=${center}`);
 }
 
 function _capoSend(tuning) {
@@ -300,7 +300,7 @@ function _capoSend(tuning) {
     if (_capoDisengaged) return;
     const value = _capoShiftToCC(shift, settings);
     _capoMidiSend(settings.channel, settings.cc, value);
-    console.log(`[MIDI] Virtual Capo: tuning=${JSON.stringify(tuning)}, shift=${shift}, CC#${settings.cc}=${value}`);
+    console.log(`[MIDI] MIDI Capo: tuning=${JSON.stringify(tuning)}, shift=${shift}, CC#${settings.cc}=${value}`);
 }
 
 function _capoResend() {
@@ -311,7 +311,7 @@ function _capoResend() {
     if (!settings.enabled || (!_capoMidiOutput && outputId !== 'internal' && !hasInternal)) return;
     const value = _capoShiftToCC(_capoLastShift, settings);
     _capoMidiSend(settings.channel, settings.cc, value);
-    console.log(`[MIDI] Virtual Capo: resend shift=${_capoLastShift}, CC#${settings.cc}=${value}`);
+    console.log(`[MIDI] MIDI Capo: resend shift=${_capoLastShift}, CC#${settings.cc}=${value}`);
 }
 
 function _capoReset() {
@@ -367,7 +367,7 @@ function _capoInjectBadge() {
     btn.id = 'btn-capo';
     btn.className = 'px-3 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 rounded-lg text-xs text-amber-300 transition';
     btn.textContent = 'Capo 0';
-    btn.title = 'Click to disengage Virtual Capo';
+    btn.title = 'Click to disengage MIDI Capo';
     btn.onclick = _capoToggleDisengage;
     controls.insertBefore(btn, closeBtn);
     _capoDisengaged = false;
@@ -390,10 +390,10 @@ function _capoStyleBadge() {
     if (!btn) return;
     if (_capoDisengaged) {
         btn.className = 'px-3 py-1.5 bg-dark-600 hover:bg-dark-500 rounded-lg text-xs text-gray-500 transition line-through';
-        btn.title = 'Click to re-engage Virtual Capo';
+        btn.title = 'Click to re-engage MIDI Capo';
     } else {
         btn.className = 'px-3 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 rounded-lg text-xs text-amber-300 transition';
-        btn.title = 'Click to disengage Virtual Capo';
+        btn.title = 'Click to disengage MIDI Capo';
     }
 }
 
@@ -453,14 +453,14 @@ function _capoUpdateStatus() {
     const settings = _capoGetSettings();
     if (!settings.enabled) {
         el.innerHTML = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 text-xs text-gray-500">
-            Virtual Capo is disabled. Enable it in Settings.</div>`;
+            MIDI Capo is disabled. Enable it in Settings.</div>`;
         return;
     }
     const tuning = _capoLastTuningOffsets;
     if (!tuning) {
         const profileName = (_capoProfiles[settings.profile] || _capoProfiles.standard).name;
         el.innerHTML = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 text-xs text-gray-500">
-            Virtual Capo enabled — ${esc(profileName)} (CC#${settings.cc}, Ch${settings.channel}) — no song loaded</div>`;
+            MIDI Capo enabled — ${esc(profileName)} (CC#${settings.cc}, Ch${settings.channel}) — no song loaded</div>`;
         return;
     }
     const shift = _capoCalcShift(tuning);
@@ -468,7 +468,7 @@ function _capoUpdateStatus() {
     const name = _capoTuningLabel(tuning);
     const profileName = (_capoProfiles[settings.profile] || _capoProfiles.standard).name;
     el.innerHTML = `<div class="bg-dark-700/50 border border-amber-800/30 rounded-xl p-3 flex items-center gap-3 text-xs">
-        <span class="text-amber-400 font-semibold">Virtual Capo</span>
+        <span class="text-amber-400 font-semibold">MIDI Capo</span>
         <span class="text-gray-500">${esc(profileName)}</span>
         <span class="text-gray-400">${name}</span>
         <span class="text-gray-400">Shift: ${shift >= 0 ? '+' : ''}${shift}</span>

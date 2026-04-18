@@ -1,6 +1,6 @@
 {
   "id": "midi_capo",
-  "name": "Virtual Capo",
+  "name": "MIDI Capo",
   "version": "1.4.0",
   "private": false,
   "nav": { "label": "Capo", "screen": "midi-capo" },

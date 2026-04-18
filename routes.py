@@ -1,4 +1,4 @@
-"""Virtual Capo plugin — extract tuning offsets from PSARC."""
+"""MIDI Capo plugin — extract tuning offsets from PSARC."""
 
 import json
 from functools import lru_cache
