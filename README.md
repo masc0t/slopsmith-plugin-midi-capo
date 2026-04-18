@@ -1,4 +1,4 @@
-# Slopsmith Plugin: Virtual Capo
+# Slopsmith Plugin: MIDI Capo
 
 A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends MIDI CC messages to your amp/modeler — or directly to a VST loaded in the Slopsmith desktop chain — automatically setting the pitch shift to match each song's tuning during playback. Supports Fractal Audio, Kemper, Line 6 Helix, Boss GT-1000, Neural DSP Quad Cortex, Headrush, VST plugins in desktop mode, and any device via Custom mode.
 
@@ -6,7 +6,7 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 
 - **Internal VST routing** — in Slopsmith desktop mode, route MIDI CC directly to VSTs in your chain (e.g. Polychrome DSP HyperTune) with no external hardware required
 - **Auto-detect MIDI devices** — uses the Web MIDI API to find connected USB MIDI devices
-- **Automatic tuning detection** — reads the song's tuning and calculates the correct semitone shift, with CentOffset (virtual capo) correction for CDLCs that use it
+- **Automatic tuning detection** — reads the song's tuning and calculates the correct semitone shift, with CentOffset (MIDI capo) correction for CDLCs that use it
 - **Arrangement-aware** — responds to the currently selected path (Lead, Rhythm, Bass) and re-fetches tuning on arrangement change
 - **Standard & Drop tuning support** — handles E Standard, D Standard, Drop D, Drop C, 7-string, and more
 - **Device presets** — built-in presets for Standard modelers (Fractal, Helix, Boss, etc.), Kemper, and Custom — each populates sensible defaults that you can still customize
@@ -33,7 +33,7 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 - **Profile-aware center** — center/zero CC value computed from profile params instead of hardcoded 64
 
 ### v1.1
-- **CentOffset fix** — CDLCs that use virtual capo encoding (positive tuning offsets with a negative CentOffset) now resolve to the correct pitch shift instead of shifting the wrong direction
+- **CentOffset fix** — CDLCs that use MIDI capo encoding (positive tuning offsets with a negative CentOffset) now resolve to the correct pitch shift instead of shifting the wrong direction
 - **Arrangement-aware** — tuning now follows the active arrangement path (Lead, Rhythm, Bass) and updates automatically when you switch
 - **Drop/Standard badge** — the player button now shows "Drop -7" or "Standard -2" so you know at a glance whether to be in Drop D or E Standard
 - **Parallel fetch** — tuning is fetched alongside song loading instead of after, so the MIDI CC is sent faster
@@ -68,7 +68,7 @@ docker compose restart
 ## How It Works
 
 1. Connect your modeler via USB MIDI — **or**, in Slopsmith desktop, load a MIDI-capable VST into your audio chain
-2. Go to **Settings** and select your device from the **Device** dropdown under Virtual Capo — this populates the CC#, shift range, and CC range as defaults, but all fields remain editable
+2. Go to **Settings** and select your device from the **Device** dropdown under MIDI Capo — this populates the CC#, shift range, and CC range as defaults, but all fields remain editable
 3. Go to **Capo** in the navigation — pick your output from the device selector (external MIDI device or **Internal VST (Slopsmith)**) and the plugin sends a center value (0 shift)
 4. When a song loads, the plugin extracts tuning offsets from the PSARC (with CentOffset correction) for the active arrangement and calculates the semitone shift
 5. The corresponding CC value is sent automatically to your MIDI device — tuning is fetched in parallel with song loading for minimal delay
@@ -90,7 +90,7 @@ When running inside the Slopsmith desktop app, the device selector exposes **Int
    - **Destination:** Transpose
    - **CC/PC/Note:** CC #18
    - **Chan:** 1
-3. **In Virtual Capo Settings**, select the **Standard** preset (CC #18, ±24 semitones, 0–127). These defaults align with the HyperTune mapping above.
+3. **In MIDI Capo Settings**, select the **Standard** preset (CC #18, ±24 semitones, 0–127). These defaults align with the HyperTune mapping above.
 4. **On the Capo screen**, pick **Internal VST (Slopsmith)** from the device dropdown (it is auto-selected if no external device has been saved).
 5. Press **Test** — HyperTune's Transpose should move, confirming the chain is receiving CC #18 on channel 1.
 
@@ -105,7 +105,7 @@ Most modern modelers use a 0–127 CC range where the center (64) is 0 shift.
 3. **Shift Range** — Usually ±24 semitones.
 
 #### Quick Setup Guides:
-- **Fractal**: Set External Control 1 to CC #18. Assign Pitch block (Virtual Capo type) Shift to External 1.
+- **Fractal**: Set External Control 1 to CC #18. Assign Pitch block (MIDI Capo type) Shift to External 1.
 - **Helix**: Assign the **Interval** parameter (in a Poly Capo or Simple Pitch block) to MIDI CC #18.
 - **Boss GT-1000**: Create assignment: Target=Pitch Shifter Shift, Source=CC #18, Range=-24 to +24.
 - **Neural DSP QC**: Use MIDI Learn on the Shift parameter and send CC #18 from the plugin Test button.
