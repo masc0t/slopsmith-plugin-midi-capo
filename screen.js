@@ -1,5 +1,3 @@
-console.log('[MIDI] Virtual Capo script v1.3.8 restoring working state...');
-
 // Virtual Capo plugin
 // Auto-sets pitch shift via MIDI CC based on song tuning.
 
@@ -45,7 +43,7 @@ function _capoSaveSetting(key, value) {
     _capoSettings = null; // invalidate cache
 }
 
-// ── Web MIDI API ────────────────────────────────────────────────────────
+// ── MIDI Initialization ──────────────────────────────────────────────────
 
 function _capoInitMidi(updateUI) {
     const hasInternal = !!(window.slopsmithDesktop?.audio);
@@ -154,19 +152,20 @@ async function _capoSendToInternal(channel, cc, value) {
     
     try {
         const chain = await api.getChainState();
-        const slots = chain.filter(s => s.type === 0);
+        const slots = chain.filter(s => s.type === 0); // 0 = VST
         if (slots.length === 0) return;
 
         const ch = parseInt(channel); 
         const statusByte = 0xB0 | (ch & 0x0F);
         
         for (const slot of slots) {
-            // Restore both formats as one was working in v1.3.6
+            // Send multiple formats to ensure compatibility across internal engine versions
             api.sendMidiToSlot(slot.id, 1, ch + 1, cc & 0x7F, value & 0x7F);
             api.sendMidiToSlot(slot.id, 0, statusByte, cc & 0x7F, value & 0x7F);
-            console.log(`DEBUG: SENT to ${slot.name} (Slot#${slot.id}) CC#${cc}=${value} (Both Formats)`);
         }
-    } catch (err) {}
+    } catch (err) {
+        console.error('[MIDI] Internal route failed:', err);
+    }
 }
 
 function _capoMidiSend(channel, cc, value) {
@@ -202,32 +201,11 @@ function _capoFetchTuning(filename, arrangement) {
 }
 
 function _capoCalcShift(tuning) {
-    // tuning = array of 6 ints, offsets from E Standard
-    // Returns the semitone shift for the Virtual Capo
     if (!tuning || tuning.length < 6) return 0;
-
     const [s0, s1, s2, s3, s4, s5] = tuning;
-
-    // Drop tuning: string0 is 2 semitones below string1
-    // Covers standard drop (Drop D/C/B) and 7-string drop variants
-    // where strings 4-5 may differ slightly from strings 1-3
-    if (s0 === s1 - 2) {
-        // Guitar is assumed to be in Drop D, shift = string1's offset
-        return s1;
-    }
-
-    // Standard tuning: all strings same offset
-    if (s0 === s1 && s1 === s2 && s2 === s3 && s3 === s4 && s4 === s5) {
-        // Guitar is assumed to be in E Standard, shift = the common offset
-        return s0;
-    }
-
-    // 7-string standard: [X, X, X, X, X+1, X] pattern
-    if (s0 === s1 && s1 === s2 && s2 === s3 && s4 === s1 + 1 && (s5 === s1 || s5 === s1 + 1)) {
-        return s1;
-    }
-
-    // Unknown tuning shape — no shift
+    if (s0 === s1 - 2) return s1;
+    if (s0 === s1 && s1 === s2 && s2 === s3 && s3 === s4 && s4 === s5) return s0;
+    if (s0 === s1 && s1 === s2 && s2 === s3 && s4 === s1 + 1 && (s5 === s1 || s5 === s1 + 1)) return s1;
     return 0;
 }
 
@@ -259,7 +237,6 @@ function _capoTuningLabel(tuning) {
     if (!tuning) return '';
     const key = tuning.join(',');
     if (_capoTuningNames[key]) return _capoTuningNames[key];
-    // Try matching just strings 0-3 for 4-string bass (last 2 are 0)
     if (tuning[4] === 0 && tuning[5] === 0) {
         for (const [k, name] of Object.entries(_capoTuningNames)) {
             const ref = k.split(',').map(Number);
@@ -287,7 +264,6 @@ function _capoSendCenter() {
     if (!settings.enabled || (!_capoMidiOutput && outputId !== 'internal' && !hasInternal)) return;
     const center = _capoShiftToCC(0, settings);
     _capoMidiSend(settings.channel, settings.cc, center);
-    console.log(`[MIDI] Virtual Capo: init center (0 shift), CC#${settings.cc}=${center}`);
 }
 
 function _capoSend(tuning) {
@@ -303,7 +279,6 @@ function _capoSend(tuning) {
     if (_capoDisengaged) return;
     const value = _capoShiftToCC(shift, settings);
     _capoMidiSend(settings.channel, settings.cc, value);
-    console.log(`[MIDI] Virtual Capo: tuning=${JSON.stringify(tuning)}, shift=${shift}, CC#${settings.cc}=${value}`);
 }
 
 function _capoResend() {
@@ -314,7 +289,6 @@ function _capoResend() {
     if (!settings.enabled || (!_capoMidiOutput && outputId !== 'internal' && !hasInternal)) return;
     const value = _capoShiftToCC(_capoLastShift, settings);
     _capoMidiSend(settings.channel, settings.cc, value);
-    console.log(`[MIDI] Virtual Capo: resend shift=${_capoLastShift}, CC#${settings.cc}=${value}`);
 }
 
 function _capoReset() {
@@ -335,7 +309,6 @@ function _capoOnSongLoad(filename, arrangement) {
     _capoLastArrangement = null;
     _capoLastTuningOffsets = null;
     _capoLastFilename = filename;
-    // Return the fetch promise so caller can await if needed
     return _capoFetchTuning(filename, arrangement);
 }
 
@@ -370,7 +343,6 @@ function _capoInjectBadge() {
     btn.id = 'btn-capo';
     btn.className = 'px-3 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 rounded-lg text-xs text-amber-300 transition';
     btn.textContent = 'Capo 0';
-    btn.title = 'Click to disengage Virtual Capo';
     btn.onclick = _capoToggleDisengage;
     controls.insertBefore(btn, closeBtn);
     _capoDisengaged = false;
@@ -393,10 +365,8 @@ function _capoStyleBadge() {
     if (!btn) return;
     if (_capoDisengaged) {
         btn.className = 'px-3 py-1.5 bg-dark-600 hover:bg-dark-500 rounded-lg text-xs text-gray-500 transition line-through';
-        btn.title = 'Click to re-engage Virtual Capo';
     } else {
         btn.className = 'px-3 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 rounded-lg text-xs text-amber-300 transition';
-        btn.title = 'Click to disengage Virtual Capo';
     }
 }
 
@@ -412,9 +382,8 @@ function _capoUpdateBadge(shift, drop) {
     }
 }
 
-// ── Hooks into core ─────────────────────────────────────────────────────
+// ── Hooks ─────────────────────────────────────────────────────────────
 
-// Wrap playSong: start tuning fetch in parallel with song load
 (function() {
     const origPlaySong = window.playSong;
     window.playSong = async function(filename, arrangement) {
@@ -422,25 +391,16 @@ function _capoUpdateBadge(shift, drop) {
         await origPlaySong(filename, arrangement);
         _capoOnSongReady(tuningPromise);
     };
-})();
 
-// Wrap changeArrangement: re-fetch tuning for the new path
-(function() {
     const origChangeArrangement = window.changeArrangement;
     window.changeArrangement = function(index) {
         origChangeArrangement(index);
-        // Look up arrangement name from the dropdown
         const sel = document.getElementById('arr-select');
         const opt = sel?.options[sel.selectedIndex];
         const arrName = opt ? opt.textContent.replace(/\s*\(.*\)$/, '') : '';
-        if (_capoLastFilename) {
-            _capoOnArrangementChange(_capoLastFilename, arrName);
-        }
+        if (_capoLastFilename) _capoOnArrangementChange(_capoLastFilename, arrName);
     };
-})();
 
-// Wrap highway.stop: send center CC when player closes
-(function() {
     const origStop = highway.stop;
     highway.stop = function() {
         origStop.call(highway);
@@ -448,28 +408,25 @@ function _capoUpdateBadge(shift, drop) {
     };
 })();
 
-// ── Status Display ──────────────────────────────────────────────────────
+// ── Status & Settings ──────────────────────────────────────────────────
 
 function _capoUpdateStatus() {
     const el = document.getElementById('capo-status');
     if (!el) return;
     const settings = _capoGetSettings();
     if (!settings.enabled) {
-        el.innerHTML = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 text-xs text-gray-500">
-            Virtual Capo is disabled. Enable it in Settings.</div>`;
+        el.innerHTML = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 text-xs text-gray-500">Virtual Capo is disabled. Enable it in Settings.</div>`;
         return;
     }
     const tuning = _capoLastTuningOffsets;
+    const profileName = (_capoProfiles[settings.profile] || _capoProfiles.standard).name;
     if (!tuning) {
-        const profileName = (_capoProfiles[settings.profile] || _capoProfiles.standard).name;
-        el.innerHTML = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 text-xs text-gray-500">
-            Virtual Capo enabled — ${esc(profileName)} (CC#${settings.cc}, Ch${settings.channel}) — no song loaded</div>`;
+        el.innerHTML = `<div class="bg-dark-700/50 border border-gray-800/50 rounded-xl p-3 text-xs text-gray-500">Virtual Capo enabled — ${esc(profileName)} (CC#${settings.cc}, Ch${settings.channel}) — no song loaded</div>`;
         return;
     }
     const shift = _capoCalcShift(tuning);
     const val = _capoShiftToCC(shift, settings);
     const name = _capoTuningLabel(tuning);
-    const profileName = (_capoProfiles[settings.profile] || _capoProfiles.standard).name;
     el.innerHTML = `<div class="bg-dark-700/50 border border-amber-800/30 rounded-xl p-3 flex items-center gap-3 text-xs">
         <span class="text-amber-400 font-semibold">Virtual Capo</span>
         <span class="text-gray-500">${esc(profileName)}</span>
@@ -504,7 +461,7 @@ function _capoLoadSettings() {
     if (!_capoProfiles[profileKey]) profileKey = 'standard';
     const profile = _capoProfiles[profileKey];
     if (prof) prof.value = profileKey;
-    // Populate range fields (always visible, always editable)
+    
     const ms = document.getElementById('midi-capo-min-shift');
     const xs = document.getElementById('midi-capo-max-shift');
     const cm = document.getElementById('midi-capo-cc-min');
@@ -513,7 +470,7 @@ function _capoLoadSettings() {
     if (xs) xs.value = localStorage.getItem('midi_capo_max_shift') || String(profile.maxShift);
     if (cm) cm.value = localStorage.getItem('midi_capo_cc_min') || String(profile.ccMin);
     if (cx) cx.value = localStorage.getItem('midi_capo_cc_max') || String(profile.ccMax);
-    // Update test shift range
+    
     const settings = _capoGetSettings();
     const testShift = document.getElementById('capo-test-shift');
     if (testShift) {
@@ -522,13 +479,12 @@ function _capoLoadSettings() {
     }
 }
 
-// Hydrate settings inputs once DOM is ready
+// Hydrate DOM
 setTimeout(_capoLoadSettings, 100);
 
-// Init MIDI on page load (no UI update — screen may not be visible)
+// Init
 _capoInitMidi(false);
 
-// Init on screen show
 (function() {
     const origShowScreen = window.showScreen;
     window.showScreen = function(id) {
