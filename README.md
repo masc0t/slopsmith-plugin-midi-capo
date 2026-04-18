@@ -1,9 +1,10 @@
 # Slopsmith Plugin: Virtual Capo
 
-A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends MIDI CC messages to your amp/modeler, automatically setting the pitch shift to match each song's tuning during playback. Supports Fractal Audio, Kemper, Line 6 Helix, Boss GT-1000, Neural DSP Quad Cortex, Headrush, and any device via Custom mode.
+A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends MIDI CC messages to your amp/modeler — or directly to a VST loaded in the Slopsmith desktop chain — automatically setting the pitch shift to match each song's tuning during playback. Supports Fractal Audio, Kemper, Line 6 Helix, Boss GT-1000, Neural DSP Quad Cortex, Headrush, VST plugins in desktop mode, and any device via Custom mode.
 
 ## Features
 
+- **Internal VST routing** — in Slopsmith desktop mode, route MIDI CC directly to VSTs in your chain (e.g. Polychrome DSP HyperTune) with no external hardware required
 - **Auto-detect MIDI devices** — uses the Web MIDI API to find connected USB MIDI devices
 - **Automatic tuning detection** — reads the song's tuning and calculates the correct semitone shift, with CentOffset (virtual capo) correction for CDLCs that use it
 - **Arrangement-aware** — responds to the currently selected path (Lead, Rhythm, Bass) and re-fetches tuning on arrangement change
@@ -17,6 +18,10 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 - **Auto-save** — settings persist in localStorage, saved automatically on change
 
 ## What's New
+
+### v1.4
+- **Internal VST output** — when running inside Slopsmith desktop, the device dropdown now includes an **Internal VST (Slopsmith)** option that routes CC messages directly to every VST slot in your audio chain. No USB MIDI hardware or Web MIDI access required.
+- **Auto-select** — if no external device has been saved, the internal output is selected by default in desktop mode.
 
 ### v1.3
 - **Consolidated Profiles** — Fractal, Helix, Boss, Neural DSP, and Headrush are now grouped into a single **Standard** profile to simplify setup, as they share the same parameters.
@@ -36,18 +41,21 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 
 ## Compatible Devices
 
-Any modeler or effects unit that accepts MIDI CC to control pitch shifting:
+Any modeler, effects unit, or VST that accepts MIDI CC to control pitch shifting:
 
+- **Internal VST (Slopsmith desktop)** — any VST loaded in the Slopsmith audio chain that exposes MIDI CC to a transpose/pitch parameter (e.g. Polychrome DSP HyperTune)
 - **Standard** — Fractal (Axe-FX III, FM9, FM3), Line 6 (Helix, HX Stomp), Boss (GT-1000, GX-100), Neural DSP (Quad Cortex), Headrush (Prime, Pedalboard)
 - **Kemper** — Profiler, Player, Stage
 - **Any other device** — use the Custom profile to define your own shift range and CC mapping
 
-> **Note:** Only **Fractal Audio** devices have been personally tested and validated with this plugin. Other devices use standard MIDI CC mapping but may require manual configuration.
+> **Note:** Only **Fractal Audio** devices and the **Internal VST** path (with Polychrome DSP HyperTune) have been personally tested and validated with this plugin. Other devices use standard MIDI CC mapping but may require manual configuration.
 
 ## Requirements
 
-- **Chrome or Edge browser** (Firefox does not support Web MIDI)
-- A USB MIDI device visible to the browser — either the modeler directly via USB, or a USB MIDI interface (e.g. MIDI Sport, Zoom U-44) connected to the device's 5-pin MIDI IN
+One of:
+
+- **Slopsmith desktop** with a MIDI-controllable VST loaded in the audio chain (no browser MIDI access needed), **or**
+- **Chrome or Edge browser** (Firefox does not support Web MIDI) **plus** a USB MIDI device visible to the browser — either the modeler directly via USB, or a USB MIDI interface (e.g. MIDI Sport, Zoom U-44) connected to the device's 5-pin MIDI IN
 
 ## Installation
 
@@ -59,9 +67,9 @@ docker compose restart
 
 ## How It Works
 
-1. Connect your modeler via USB MIDI
+1. Connect your modeler via USB MIDI — **or**, in Slopsmith desktop, load a MIDI-capable VST into your audio chain
 2. Go to **Settings** and select your device from the **Device** dropdown under Virtual Capo — this populates the CC#, shift range, and CC range as defaults, but all fields remain editable
-3. Go to **Capo** in the navigation — the plugin detects your MIDI device and sends a center value (0 shift)
+3. Go to **Capo** in the navigation — pick your output from the device selector (external MIDI device or **Internal VST (Slopsmith)**) and the plugin sends a center value (0 shift)
 4. When a song loads, the plugin extracts tuning offsets from the PSARC (with CentOffset correction) for the active arrangement and calculates the semitone shift
 5. The corresponding CC value is sent automatically to your MIDI device — tuning is fetched in parallel with song loading for minimal delay
 6. Use the **Test** button to manually send a shift and verify the correct pitch change on your device
@@ -71,6 +79,22 @@ docker compose restart
 ## Device Setup
 
 > **Note:** Selecting a device preset populates all fields (CC#, shift range, CC value range) with sensible defaults for that device. All fields remain editable — adjust anything to match your specific setup.
+
+### Internal VST (Slopsmith desktop)
+
+When running inside the Slopsmith desktop app, the device selector exposes **Internal VST (Slopsmith)**. Selecting it routes CC messages directly to every VST slot in your chain — no external hardware or Web MIDI access required.
+
+1. **Load a MIDI-capable pitch/transpose VST** into your Slopsmith audio chain. [**Polychrome DSP HyperTune**](https://polychromedsp.com/) is the reference plugin for this feature.
+2. **Configure the VST's MIDI mapping.** In HyperTune, open **MIDI Mapping** and add a mapping:
+   - **Type:** CC Value
+   - **Destination:** Transpose
+   - **CC/PC/Note:** CC #18
+   - **Chan:** 1
+3. **In Virtual Capo Settings**, select the **Standard** preset (CC #18, ±24 semitones, 0–127). These defaults align with the HyperTune mapping above.
+4. **On the Capo screen**, pick **Internal VST (Slopsmith)** from the device dropdown (it is auto-selected if no external device has been saved).
+5. Press **Test** — HyperTune's Transpose should move, confirming the chain is receiving CC #18 on channel 1.
+
+Any VST that accepts MIDI CC on a transpose/pitch parameter will work the same way — just match the CC# and channel between the VST and the plugin settings.
 
 ### Standard Modelers (Fractal / Helix / Boss / Neural DSP / Headrush)
 

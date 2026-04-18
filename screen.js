@@ -46,14 +46,23 @@ function _capoSaveSetting(key, value) {
 // ── Web MIDI API ────────────────────────────────────────────────────────
 
 function _capoInitMidi(updateUI) {
-    if (!navigator.requestMIDIAccess) {
+    const hasInternal = !!(window.slopsmithDesktop?.audio);
+    const handleFailure = (msg, err) => {
         if (updateUI) {
-            document.getElementById('capo-midi-status').innerHTML = `
-                <div class="bg-red-900/20 border border-red-800/30 rounded-xl p-4 text-sm">
-                    <p class="text-red-400 font-semibold">Web MIDI not supported</p>
-                    <p class="text-gray-400">Use Chrome or Edge. Firefox does not support Web MIDI.</p>
-                </div>`;
+            if (hasInternal) {
+                _capoRenderDevices();
+            } else {
+                document.getElementById('capo-midi-status').innerHTML = `
+                    <div class="bg-red-900/20 border border-red-800/30 rounded-xl p-4 text-sm">
+                        <p class="text-red-400 font-semibold">${msg}</p>
+                        <p class="text-gray-400">${err}</p>
+                    </div>`;
+            }
         }
+    };
+
+    if (!navigator.requestMIDIAccess) {
+        handleFailure('Web MIDI not supported', 'Use Chrome or Edge. Firefox does not support Web MIDI.');
         return Promise.resolve();
     }
 
@@ -68,32 +77,43 @@ function _capoInitMidi(updateUI) {
             _capoResend();
         };
     }).catch(e => {
-        if (updateUI) {
-            document.getElementById('capo-midi-status').innerHTML = `
-                <div class="bg-red-900/20 border border-red-800/30 rounded-xl p-4 text-sm">
-                    <p class="text-red-400 font-semibold">MIDI access denied</p>
-                    <p class="text-gray-400">${e.message}</p>
-                </div>`;
-        }
+        handleFailure('MIDI access denied', e.message);
     });
 }
 
 function _capoPickOutput() {
+    let savedId = localStorage.getItem('midi_output_id');
+    const hasInternal = !!(window.slopsmithDesktop?.audio);
+    
+    // Auto-select internal if available and nothing else is set
+    if (hasInternal && (!savedId || savedId === 'null' || savedId === 'undefined')) {
+        savedId = 'internal';
+        localStorage.setItem('midi_output_id', 'internal');
+    }
+
+    if (savedId === 'internal') {
+        _capoMidiOutput = null;
+        return;
+    }
     if (!_capoMidiAccess) return;
     const outputs = [];
     _capoMidiAccess.outputs.forEach(o => outputs.push(o));
-    const savedId = localStorage.getItem('midi_output_id');
     _capoMidiOutput = outputs.find(o => o.id === savedId) || outputs[0] || null;
 }
 
 function _capoRenderDevices() {
     const status = document.getElementById('capo-midi-status');
-    if (!status || !_capoMidiAccess) return;
+    if (!status) return;
 
     const outputs = [];
-    _capoMidiAccess.outputs.forEach(o => outputs.push(o));
+    if (_capoMidiAccess) {
+        _capoMidiAccess.outputs.forEach(o => outputs.push(o));
+    }
 
-    if (outputs.length === 0) {
+    const hasInternal = !!(window.slopsmithDesktop?.audio);
+    const savedId = localStorage.getItem('midi_output_id');
+
+    if (outputs.length === 0 && !hasInternal) {
         status.innerHTML = `
             <div class="bg-yellow-900/20 border border-yellow-800/30 rounded-xl p-4 text-sm">
                 <p class="text-yellow-400 font-semibold">No MIDI output devices</p>
@@ -107,8 +127,14 @@ function _capoRenderDevices() {
         <span class="text-green-400 text-xs">MIDI Ready</span>
         <select id="capo-device-select" onchange="capoSelectDevice(this.value)"
             class="bg-dark-600 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">`;
+    
+    if (hasInternal) {
+        const selected = (savedId === 'internal' || !savedId) ? 'selected' : '';
+        html += `<option value="internal" ${selected}>Internal VST (Slopsmith)</option>`;
+    }
+
     for (const o of outputs) {
-        const selected = _capoMidiOutput && o.id === _capoMidiOutput.id ? 'selected' : '';
+        const selected = savedId === o.id ? 'selected' : '';
         html += `<option value="${o.id}" ${selected}>${esc(o.name)}</option>`;
     }
     html += `</select></div>`;
@@ -117,26 +143,49 @@ function _capoRenderDevices() {
 }
 
 function capoSelectDevice(id) {
-    if (!_capoMidiAccess) return;
-    _capoMidiAccess.outputs.forEach(o => {
-        if (o.id === id) _capoMidiOutput = o;
-    });
     localStorage.setItem('midi_output_id', id);
+    _capoPickOutput();
+}
+
+async function _capoSendToInternal(channel, cc, value) {
+    const api = window.slopsmithDesktop?.audio;
+    if (!api || !api.sendMidiToSlot) return;
+    
+    try {
+        const chain = await api.getChainState();
+        const slots = chain.filter(s => s.type === 0); // 0 = VST
+        if (slots.length === 0) return;
+
+        const ch = parseInt(channel); 
+        for (const slot of slots) {
+            // Internal CC format: (slotId, type=1, channel[1-16], cc#, value)
+            api.sendMidiToSlot(slot.id, 1, ch + 1, cc & 0x7F, value & 0x7F);
+        }
+    } catch (err) {
+        console.error('[MIDI] Internal send failed:', err);
+    }
 }
 
 function _capoMidiSend(channel, cc, value) {
+    const savedId = localStorage.getItem('midi_output_id');
+    const hasInternal = !!(window.slopsmithDesktop?.audio);
+    
+    if (savedId === 'internal' || (hasInternal && !savedId)) {
+        _capoSendToInternal(channel, cc, value);
+        return;
+    }
+    
     if (!_capoMidiOutput) return;
     const ch = channel & 0x0F;
     _capoMidiOutput.send([0xB0 | ch, cc & 0x7F, value & 0x7F]);
-    console.log(`[MIDI] Ch${ch} CC#${cc} = ${value}`);
 }
 
 function capoTestSend() {
     const settings = _capoGetSettings();
     const shift = parseInt(document.getElementById('capo-test-shift').value) || 0;
     const value = _capoShiftToCC(shift, settings);
-    _capoMidiSend(settings.channel, settings.cc, value);
     console.log(`[MIDI] Virtual Capo test: shift=${shift}, CC#${settings.cc}=${value}`);
+    _capoMidiSend(settings.channel, settings.cc, value);
 }
 
 // ── Virtual Capo Logic ──────────────────────────────────────────────────
@@ -230,7 +279,9 @@ function _capoShiftToCC(shift, s) {
 
 function _capoSendCenter() {
     const settings = _capoGetSettings();
-    if (!settings.enabled || !_capoMidiOutput) return;
+    const outputId = localStorage.getItem('midi_output_id');
+    const hasInternal = !!(window.slopsmithDesktop?.audio);
+    if (!settings.enabled || (!_capoMidiOutput && outputId !== 'internal' && !hasInternal)) return;
     const center = _capoShiftToCC(0, settings);
     _capoMidiSend(settings.channel, settings.cc, center);
     console.log(`[MIDI] Virtual Capo: init center (0 shift), CC#${settings.cc}=${center}`);
@@ -238,7 +289,9 @@ function _capoSendCenter() {
 
 function _capoSend(tuning) {
     const settings = _capoGetSettings();
-    if (!settings.enabled || !_capoMidiOutput) return;
+    const outputId = localStorage.getItem('midi_output_id');
+    const hasInternal = !!(window.slopsmithDesktop?.audio);
+    if (!settings.enabled || (!_capoMidiOutput && outputId !== 'internal' && !hasInternal)) return;
 
     const shift = _capoCalcShift(tuning);
     const drop = _capoIsDrop(tuning);
@@ -253,7 +306,9 @@ function _capoSend(tuning) {
 function _capoResend() {
     if (_capoLastShift === null) return;
     const settings = _capoGetSettings();
-    if (!settings.enabled || !_capoMidiOutput) return;
+    const outputId = localStorage.getItem('midi_output_id');
+    const hasInternal = !!(window.slopsmithDesktop?.audio);
+    if (!settings.enabled || (!_capoMidiOutput && outputId !== 'internal' && !hasInternal)) return;
     const value = _capoShiftToCC(_capoLastShift, settings);
     _capoMidiSend(settings.channel, settings.cc, value);
     console.log(`[MIDI] Virtual Capo: resend shift=${_capoLastShift}, CC#${settings.cc}=${value}`);
