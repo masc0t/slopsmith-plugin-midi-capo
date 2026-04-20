@@ -2,7 +2,7 @@
 // Auto-sets pitch shift via MIDI CC/PC based on song tuning.
 
 const _capoProfiles = {
-    standard:  { name: 'Standard (Fractal, Helix, etc.)', minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18, ccBypass: 0 },
+    standard:  { name: 'Standard (Fractal, Helix, etc.)', minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18, ccBypass: 64 },
     kemper:    { name: 'Kemper',                          minShift: -36, maxShift: 36, ccMin: 28, ccMax: 100, defaultCC: 38, ccBypass: 28 },
     whammy_dt_drop: {
         name: 'DigiTech Whammy DT',
@@ -702,6 +702,15 @@ function _capoLoadSettings() {
     }
 }
 
+
+// Migrate stale ccBypass=0 for standard profile (CC 0 = -24 semitones, not center)
+(function() {
+    if ((localStorage.getItem('midi_capo_profile') || 'standard') === 'standard') {
+        if (localStorage.getItem('midi_capo_cc_bypass') === '0') {
+            localStorage.setItem('midi_capo_cc_bypass', '64');
+        }
+    }
+})();
 
 // Hydrate DOM
 setTimeout(_capoLoadSettings, 100);

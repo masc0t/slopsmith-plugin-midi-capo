@@ -21,6 +21,9 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 
 ## What's New
 
+### v1.5.2
+- **Fix: Standard profile (Fractal / Helix / Boss / etc.) sends wrong CC for E Standard** — `ccBypass` was `0`, which maps to −24 semitones on a 0–127 CC range centered at 64. Changed to `64` (the correct linear-formula center). A startup migration updates any saved `ccBypass = 0` values in localStorage automatically — no reconfiguration needed.
+
 ### v1.5.1
 - **Fix: Whammy DT not resetting to standard tuning** ([#4](https://github.com/masc0t/slopsmith-plugin-midi-capo/issues/4)) — when a song in E Standard loaded after a shifted song, the pedal stayed in Drop Tune mode. Root cause: the plugin always sent PC 78 for 0 shift, but PC 78 only bypasses the E Standard null state — it does not disengage an active Drop Tune preset. The fix sends the per-preset bypass PC (active PC + 18, per the RSMods `activeBypassMap`) when transitioning back to 0. For example, Drop Tune −1 (PC 59) now correctly disengages with PC 77. The same fix applies to the test button and the player-bar disengage toggle.
 
