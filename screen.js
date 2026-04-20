@@ -2,7 +2,7 @@
 // Auto-sets pitch shift via MIDI CC/PC based on song tuning.
 
 const _capoProfiles = {
-    standard:  { name: 'Standard (Fractal, Helix, etc.)', minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18, ccBypass: 0 },
+    standard:  { name: 'Standard (Fractal, Helix, etc.)', minShift: -24, maxShift: 24, ccMin: 0,  ccMax: 127, defaultCC: 18, ccBypass: 64 },
     kemper:    { name: 'Kemper',                          minShift: -36, maxShift: 36, ccMin: 28, ccMax: 100, defaultCC: 38, ccBypass: 28 },
     whammy_dt_drop: {
         name: 'DigiTech Whammy DT',
@@ -18,6 +18,12 @@ const _capoProfiles = {
             '-1': 59, '-2': 58, '-3': 57, '-4': 56, '-5': 55, '-6': 54,
             '-7': 53, '-8': 53, '-9': 53, '-10': 53, '-11': 53,
             '-12': 52
+        },
+        // Each active Drop Tune PC has a dedicated bypass PC (active + 18).
+        // PC 78 alone does not disengage Drop Tune mode; the per-preset bypass PC must be sent.
+        bypassMap: {
+            '42': 60, '43': 61, '44': 62, '45': 63, '46': 64, '47': 65, '48': 66, '49': 67,
+            '52': 70, '53': 71, '54': 72, '55': 73, '56': 74, '57': 75, '58': 76, '59': 77
         },
         depthSlots: [
             { pc: 0, semitones:  24 }, { pc: 1, semitones:  12 },
@@ -254,8 +260,11 @@ function _capoMidiSend(channel, cc, value, forceType) {
 
 function capoTestSend() {
     const settings = _capoGetSettings();
+    const profile = _capoProfiles[settings.profile];
     const shift = parseInt(document.getElementById('capo-test-shift').value) || 0;
-    const value = _capoShiftToCC(shift, settings);
+    const value = (shift === 0 && profile?.bypassMap && _capoLastShift)
+        ? _capoGetBypassPC(profile, _capoLastShift, settings)
+        : _capoShiftToCC(shift, settings);
     _capoMidiSend(settings.channel, settings.cc, value);
 }
 
@@ -350,6 +359,12 @@ function _capoShiftToCC(shift, s) {
     return Math.max(Math.min(s.ccMin, s.ccMax), Math.min(Math.max(s.ccMin, s.ccMax), Math.round(cc)));
 }
 
+function _capoGetBypassPC(profile, activeShift, settings) {
+    const activePC = profile.mapping?.[String(activeShift)];
+    if (activePC == null) return settings.ccBypass;
+    return profile.bypassMap[String(activePC)] ?? settings.ccBypass;
+}
+
 function _capoChannelReady(settings) {
     const outputId = localStorage.getItem('midi_output_id');
     const hasInternal = !!(window.slopsmithDesktop?.audio);
@@ -369,6 +384,7 @@ function _capoSend(t) {
     const shift = _capoCalcShift(t.tuning);
     const drop = _capoIsDrop(t.tuning);
     const cents = t.centOffsetResidual || 0;
+    const prevShift = _capoLastShift;
     _capoLastShift = shift;
     _capoUpdateBadge(shift, drop, cents);
     if (_capoDisengaged) return;
@@ -377,7 +393,10 @@ function _capoSend(t) {
     if (profile?.depthSlots && cents !== 0) {
         _capoSendDepthCorrection(settings, profile, shift, cents);
     } else {
-        _capoMidiSend(settings.channel, settings.cc, _capoShiftToCC(shift, settings));
+        const value = (shift === 0 && profile?.bypassMap && prevShift)
+            ? _capoGetBypassPC(profile, prevShift, settings)
+            : _capoShiftToCC(shift, settings);
+        _capoMidiSend(settings.channel, settings.cc, value);
     }
 }
 
@@ -410,12 +429,19 @@ function _capoResend() {
 }
 
 function _capoReset() {
+    const settings = _capoGetSettings();
+    const profile = _capoProfiles[settings.profile];
+    const prevShift = _capoLastShift;
     _capoLastTitle = null;
     _capoLastArrangement = null;
     _capoLastTuning = null;
     _capoLastShift = null;
     _capoDisengaged = false;
-    _capoSendCenter();
+    if (profile?.bypassMap && prevShift) {
+        _capoMidiSend(settings.channel, settings.cc, _capoGetBypassPC(profile, prevShift, settings));
+    } else {
+        _capoSendCenter();
+    }
     const btn = document.getElementById('btn-capo');
     if (btn) btn.remove();
 }
@@ -473,7 +499,11 @@ function _capoToggleDisengage() {
         _capoResend();
     } else {
         _capoDisengaged = true;
-        _capoMidiSend(settings.channel, settings.cc, settings.ccBypass);
+        const profile = _capoProfiles[settings.profile];
+        const value = (profile?.bypassMap && _capoLastShift)
+            ? _capoGetBypassPC(profile, _capoLastShift, settings)
+            : settings.ccBypass;
+        _capoMidiSend(settings.channel, settings.cc, value);
     }
     _capoStyleBadge();
 }
@@ -672,6 +702,15 @@ function _capoLoadSettings() {
     }
 }
 
+
+// Migrate stale ccBypass=0 for standard profile (CC 0 = -24 semitones, not center)
+(function() {
+    if ((localStorage.getItem('midi_capo_profile') || 'standard') === 'standard') {
+        if (localStorage.getItem('midi_capo_cc_bypass') === '0') {
+            localStorage.setItem('midi_capo_cc_bypass', '64');
+        }
+    }
+})();
 
 // Hydrate DOM
 setTimeout(_capoLoadSettings, 100);
