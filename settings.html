@@ -16,7 +16,17 @@
                     class="bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
                     <option value="standard">Standard (Fractal, Helix, etc.)</option>
                     <option value="kemper">Kemper</option>
+                    <option value="whammy_dt_drop">DigiTech Whammy DT</option>
                     <option value="custom">Custom</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-2" id="capo-mode-container">
+                <label class="text-xs text-gray-500">Mode</label>
+                <select id="midi-capo-type"
+                    onchange="_capoSaveSetting('midi_capo_type', this.value); _capoLoadSettings()"
+                    class="bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                    <option value="cc">CC (Sweep)</option>
+                    <option value="pc">PC (Program)</option>
                 </select>
             </div>
             <div class="flex items-center gap-2">
@@ -25,11 +35,17 @@
                     onchange="_capoSaveSetting('midi_capo_channel', this.value)"
                     class="w-14 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2" id="capo-cc-container">
                 <label class="text-xs text-gray-500">CC#</label>
                 <input type="number" id="midi-capo-cc" min="0" max="127" value="18"
                     onchange="_capoSaveSetting('midi_capo_cc', this.value)"
-                    class="w-14 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                    class="w-14 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none disabled:opacity-50">
+            </div>
+            <div class="flex items-center gap-2" id="capo-bypass-container">
+                <label class="text-xs text-gray-500" id="capo-bypass-label">Bypass</label>
+                <input type="number" id="midi-capo-cc-bypass" min="0" max="127" value="0"
+                    onchange="_capoSaveSetting('midi_capo_cc_bypass', this.value)"
+                    class="w-14 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none disabled:opacity-50">
             </div>
             <label class="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" id="midi-capo-reset-on-stop"
@@ -38,31 +54,38 @@
                 <span class="text-xs text-gray-300">Reset on stop</span>
             </label>
         </div>
-        <div class="flex items-center gap-4 flex-wrap">
+        <div class="flex items-center gap-4 flex-wrap" id="capo-params-container">
             <div class="flex items-center gap-2">
                 <label class="text-xs text-gray-500">Min Shift</label>
                 <input type="number" id="midi-capo-min-shift" min="-48" max="0" value="-24"
                     onchange="_capoSaveSetting('midi_capo_min_shift', this.value)"
-                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none disabled:opacity-50">
             </div>
             <div class="flex items-center gap-2">
                 <label class="text-xs text-gray-500">Max Shift</label>
                 <input type="number" id="midi-capo-max-shift" min="0" max="48" value="24"
                     onchange="_capoSaveSetting('midi_capo_max_shift', this.value)"
-                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none disabled:opacity-50">
             </div>
             <div class="flex items-center gap-2">
                 <label class="text-xs text-gray-500">CC Min</label>
                 <input type="number" id="midi-capo-cc-min" min="0" max="127" value="0"
                     onchange="_capoSaveSetting('midi_capo_cc_min', this.value)"
-                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none disabled:opacity-50">
             </div>
             <div class="flex items-center gap-2">
                 <label class="text-xs text-gray-500">CC Max</label>
                 <input type="number" id="midi-capo-cc-max" min="0" max="127" value="127"
                     onchange="_capoSaveSetting('midi_capo_cc_max', this.value)"
-                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
+                    class="w-16 bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none disabled:opacity-50">
             </div>
+        </div>
+        <div class="flex flex-col gap-1 mt-1" id="capo-mapping-container">
+            <label class="text-xs text-gray-500">Manual Mapping (e.g. 0:61, -1:60, -12:53)</label>
+            <input type="text" id="midi-capo-mapping" 
+                placeholder="shift:value, shift:value..."
+                onchange="_capoSaveSetting('midi_capo_mapping', this.value)"
+                class="w-full bg-dark-700 border border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-300 outline-none">
         </div>
     </div>
 </div>

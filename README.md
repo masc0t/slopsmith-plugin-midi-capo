@@ -4,13 +4,15 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 
 ## Features
 
-- **Internal VST routing** — in Slopsmith desktop mode, route MIDI CC directly to VSTs in your chain (e.g. Polychrome DSP HyperTune) with no external hardware required
+- **Internal VST routing** — in Slopsmith desktop mode, route MIDI CC/PC directly to VSTs in your chain (e.g. Polychrome DSP HyperTune) with no external hardware required
 - **Auto-detect MIDI devices** — uses the Web MIDI API to find connected USB MIDI devices
 - **Automatic tuning detection** — reads the song's tuning and calculates the correct semitone shift, with CentOffset (MIDI capo) correction for CDLCs that use it
 - **Arrangement-aware** — responds to the currently selected path (Lead, Rhythm, Bass) and re-fetches tuning on arrangement change
 - **Standard & Drop tuning support** — handles E Standard, D Standard, Drop D, Drop C, 7-string, and more
-- **Device presets** — built-in presets for Standard modelers (Fractal, Helix, Boss, etc.), Kemper, and Custom — each populates sensible defaults that you can still customize
-- **Configurable CC & channel** — route to any MIDI channel and CC number to match your setup
+- **Device presets** — built-in presets for Standard modelers (Fractal, Helix, Boss, etc.), Kemper, DigiTech Whammy DT, and Custom — each populates sensible defaults that you can still customize
+- **Program Change (PC) mode** — for pedals that switch presets via PC instead of CC sweeps (e.g. DigiTech Whammy DT)
+- **Cent-accurate true tuning** — for non-A440 references the Whammy DT profile sends a combined PC + CC#11 depth message so the pedal lands on the exact target Hertz
+- **Configurable CC/PC & channel** — route to any MIDI channel and CC/PC number to match your setup
 - **Player bar badge** — shows the current shift with tuning type indicator (e.g. "Drop -7" or "Standard -2"); click to disengage/re-engage the capo on the fly
 - **Device reconnect** — automatically re-sends the last shift if your USB MIDI device disconnects and reconnects mid-song
 - **Test button** — send a pitch shift manually to verify your connection
@@ -18,6 +20,16 @@ A plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that sends M
 - **Auto-save** — settings persist in localStorage, saved automatically on change
 
 ## What's New
+
+### v1.5
+- **DigiTech Whammy DT (full RSMods parity)** — drop-side PC mapping rewritten to match the proven [RSMods](https://github.com/Lovrom8/RSMods) values across the pedal's full ±12 semitone range (PC 42–49 for +1..+12, PC 52–59 for -1..-12, PC 78 for E Standard / NULL). Previous mapping was off-by-one and only covered the down side.
+- **Non-A440 cent correction** — for songs with a fractional `CentOffset` (e.g. Hendrix A446), the plugin now sends a Whammy-side PC + CC#11 depth message that lands the pedal at the exact target Hertz. Mirrors RSMods `AutoTrueTuningPastLimits`. The server route additionally returns `centOffsetResidual` (raw cents leftover after whole-semitone rounding); older clients ignoring it are unaffected.
+- **Status & badge** — player-bar capo badge and Capo screen status now show the residual cents (e.g. `Drop -1 +23¢`) when the cent-depth path is active.
+- Dropdown label simplified: "DigiTech Whammy DT (Drop Side)" → "DigiTech Whammy DT" (the profile drives both sides now).
+
+> **Status:** Whammy DT support is ported from [RSMods](https://github.com/Lovrom8/RSMods) (which is community-validated on real hardware) but has **not** been tested on a physical pedal in this repo. PC numbers, CC#11 depth formula, and bypass slot all match the RSMods reference values 1:1. If you own a Whammy DT, please report any discrepancies via GitHub issue.
+
+> **Note:** The Whammy DT's foot plate instantly overrides any depth value sent over MIDI. Leave the toe alone while a song is loaded for the cent correction to take effect.
 
 ### v1.4
 - **Internal VST output** — when running inside Slopsmith desktop, the device dropdown now includes an **Internal VST (Slopsmith)** option that routes CC messages directly to every VST slot in your audio chain. No USB MIDI hardware or Web MIDI access required.
@@ -46,6 +58,7 @@ Any modeler, effects unit, or VST that accepts MIDI CC to control pitch shifting
 - **Internal VST (Slopsmith desktop)** — any VST loaded in the Slopsmith audio chain that exposes MIDI CC to a transpose/pitch parameter (e.g. Polychrome DSP HyperTune)
 - **Standard** — Fractal (Axe-FX III, FM9, FM3), Line 6 (Helix, HX Stomp), Boss (GT-1000, GX-100), Neural DSP (Quad Cortex), Headrush (Prime, Pedalboard)
 - **Kemper** — Profiler, Player, Stage
+- **DigiTech Whammy DT** — full ±12 semitone Drop-Tune-side mapping plus CC#11 depth fine-tuning for non-A440 songs, lifted from [RSMods](https://github.com/Lovrom8/RSMods)
 - **Any other device** — use the Custom profile to define your own shift range and CC mapping
 
 > **Note:** Only **Fractal Audio** devices and the **Internal VST** path (with Polychrome DSP HyperTune) have been personally tested and validated with this plugin. Other devices use standard MIDI CC mapping but may require manual configuration.
@@ -110,6 +123,31 @@ Most modern modelers use a 0–127 CC range where the center (64) is 0 shift.
 - **Boss GT-1000**: Create assignment: Target=Pitch Shifter Shift, Source=CC #18, Range=-24 to +24.
 - **Neural DSP QC**: Use MIDI Learn on the Shift parameter and send CC #18 from the plugin Test button.
 - **Headrush**: Assign pitch parameter to MIDI CC #18.
+
+### DigiTech Whammy DT
+
+The Whammy DT profile uses Program Change to drive the **Drop Tune side** of the pedal across the full ±12 semitone range. For songs whose reference pitch isn't A440 (e.g. Hendrix tracks at A446), the plugin additionally sends a CC#11 depth message to the Whammy side to fine-tune the cents.
+
+1. Connect the pedal's **MIDI IN** to your USB MIDI interface (or the Slopsmith desktop chain if running internally).
+2. Set the pedal to listen on MIDI channel 1.
+3. **Plugin** — Select the **DigiTech Whammy DT** preset. Defaults: PC mode, ±12 shift, PC bypass 78, CC#11 for depth.
+4. Load any tuned song. The pedal will switch presets automatically — Drop side LED for whole-semitone tunings, Whammy side LED for non-A440 corrections.
+
+> **Note:** The Whammy DT's foot plate instantly overrides any depth value sent over MIDI. If you touch the toe while a non-A440 song is loaded, the cent correction is lost until the next song change. Leave the toe alone for cent-accurate playback.
+
+PC value table (for reference):
+
+| Tuning | PC | Tuning | PC |
+|--------|---:|--------|---:|
+| E +OCT | 49 | E Standard | 78 |
+| B Std (above) | 48 | Eb Standard | 59 |
+| Bb Std (above) | 47 | D Standard | 58 |
+| A Std (above) | 46 | C# Standard | 57 |
+| Ab Std (above) | 45 | C Standard | 56 |
+| G Std (above) | 44 | B Standard | 55 |
+| F# Std (above) | 43 | Bb Standard | 54 |
+| F Std (above) | 42 | A Standard | 53 |
+|  |  | E -OCT | 52 |
 
 ### Kemper (Profiler / Player / Stage)
 
